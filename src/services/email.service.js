@@ -22,11 +22,11 @@ class EmailService {
    * @returns {"resend" | "test" | "unconfigured"}
    */
   resolveProvider() {
-    if (process.env.RESEND_API_KEY) {
-      return "resend";
-    }
     if (process.env.NODE_ENV === "test" || process.env.EMAIL_PROVIDER === "test") {
       return "test";
+    }
+    if (process.env.RESEND_API_KEY) {
+      return "resend";
     }
     return "unconfigured";
   }

@@ -4,6 +4,7 @@ const path = require("path");
 
 const backendDir = path.resolve(__dirname, "../..");
 require(path.join(backendDir, "node_modules/dotenv")).config({ path: path.join(backendDir, ".env") });
+process.env.NODE_ENV = "test";
 
 const app = require("../app");
 const { hashPassword, comparePassword } = require("../utils/password");
