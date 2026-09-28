@@ -17,17 +17,20 @@ function extractLanguage(req) {
 }
 
 function resolveFrontendUrl(req) {
-  if (process.env.FRONTEND_URL) {
-    return process.env.FRONTEND_URL.replace(/\/+$/, "");
-  }
   const origin = (req && (req.get("origin") || req.get("referer"))) || "";
   if (origin.includes("german-auto-frontend.vercel.app") || origin.includes("vercel.app")) {
     return "https://german-auto-frontend.vercel.app";
   }
-  if (process.env.NODE_ENV === "production") {
+  if (process.env.FRONTEND_URL && !process.env.FRONTEND_URL.includes("localhost")) {
+    return process.env.FRONTEND_URL.replace(/\/+$/, "");
+  }
+  if (process.env.NODE_ENV === "production" || process.env.VERCEL) {
     return "https://german-auto-frontend.vercel.app";
   }
-  return "http://localhost:5173";
+  if (process.env.FRONTEND_URL) {
+    return process.env.FRONTEND_URL.replace(/\/+$/, "");
+  }
+  return "https://german-auto-frontend.vercel.app";
 }
 
 function resolveRedirectUri(req) {

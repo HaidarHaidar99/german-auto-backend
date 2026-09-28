@@ -54,7 +54,7 @@ const getCookieMaxAgeMs = () => {
  * Standard secure cookie options
  */
 const getAuthCookieOptions = () => {
-  const isProduction = process.env.NODE_ENV === "production";
+  const isProduction = process.env.NODE_ENV === "production" || Boolean(process.env.VERCEL);
 
   return {
     httpOnly: true,

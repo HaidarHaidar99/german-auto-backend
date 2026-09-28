@@ -72,8 +72,8 @@ app.use(cookieParser());
 // General rate limiter on API endpoints
 app.use("/api", generalApiLimiter);
 
-// Health check endpoint
-app.get("/", (req, res) => {
+// Health check endpoints
+app.get(["/", "/health", "/api/health"], (req, res) => {
   return successResponse(res, {
     message: "German Auto Backend Running",
     data: {
