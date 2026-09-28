@@ -80,6 +80,13 @@ app.get(["/", "/health", "/api/health"], (req, res) => {
       status: "healthy",
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV || "development",
+      configured_services: {
+        supabase: Boolean(process.env.SUPABASE_URL && (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY)),
+        google_oauth: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
+        resend_email: Boolean(process.env.RESEND_API_KEY),
+        smtp_email: Boolean(process.env.SMTP_USER && process.env.SMTP_PASS),
+        jwt_secret: Boolean(process.env.JWT_SECRET),
+      },
     },
   });
 });
