@@ -10,6 +10,7 @@ const http = require("http");
 const path = require("path");
 
 require("dotenv").config({ path: path.resolve(__dirname, "../../.env") });
+process.env.NODE_ENV = "test";
 
 const app = require("../app");
 const supabase = require("../config/supabase");
@@ -238,23 +239,29 @@ async function testEmailVerification() {
     assert.strictEqual(status, 400);
   });
 
-  await test("Expired token → 400", async () => {
-    const user = await getUser(TEST_EMAIL);
+  await test("Expired token → 400 & unverified user deleted from DB", async () => {
+    const EXPIRED_TEST_EMAIL = `expired.${RUN_ID}@germanautotestonly.invalid`;
+    await apiPost("/api/auth/signup", {
+      full_name: "Expired Test User",
+      email: EXPIRED_TEST_EMAIL,
+      password: TEST_PASSWORD,
+      confirm_password: TEST_PASSWORD,
+    });
+
+    const expUser = await getUser(EXPIRED_TEST_EMAIL);
     // Force token expiry in DB
     await supabase
       .from("users")
       .update({ link_expires_at: new Date(Date.now() - 5000).toISOString() })
-      .eq("id", user.id);
+      .eq("id", expUser.id);
 
-    const { status, data } = await apiGet(`/api/auth/verify-email?token=${user.link}`);
+    const { status, data } = await apiGet(`/api/auth/verify-email?token=${expUser.link}`);
     assert.strictEqual(status, 400);
     assert.ok(data.message.toLowerCase().includes("expir"), "Should mention expiration");
 
-    // Restore valid expiry so subsequent tests work
-    await supabase
-      .from("users")
-      .update({ link_expires_at: new Date(Date.now() + 3600000).toISOString() })
-      .eq("id", user.id);
+    // Verify unverified account was deleted from DB
+    const deletedUser = await getUser(EXPIRED_TEST_EMAIL);
+    assert.strictEqual(deletedUser, null, "Expired unverified user must be deleted from DB");
   });
 
   let usedToken;

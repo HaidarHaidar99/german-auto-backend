@@ -14,7 +14,7 @@ class AuthService {
     // Check if user already exists
     const { data: existingUser } = await supabase
       .from("users")
-      .select("id, full_name, is_verified")
+      .select("id, full_name, is_verified, link, link_expires_at")
       .eq("email", normalizedEmail)
       .maybeSingle();
 
@@ -26,40 +26,50 @@ class AuthService {
         throw err;
       }
 
-      // User exists but has NOT verified yet: update credentials & generate a fresh 15-minute token
-      const passwordHash = await hashPassword(password);
-      const verificationToken = generateRandomToken();
-      const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // exactly 15 minutes
+      const now = new Date();
+      const expiresAt = existingUser.link_expires_at ? new Date(existingUser.link_expires_at) : null;
+      const isExpired = !expiresAt || expiresAt <= now;
 
-      const { data: updatedUser, error: updateError } = await supabase
-        .from("users")
-        .update({
-          full_name: fullName.trim(),
-          password_hash: passwordHash,
-          link: verificationToken,
-          link_expires_at: expiresAt,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", existingUser.id)
-        .select("id, full_name, email, role, is_verified, created_at")
-        .single();
+      if (isExpired) {
+        // If signed up and not verified, and 15 min was done, delete account from database
+        await supabase.from("users").delete().eq("id", existingUser.id);
+        // Continue below to register as a fresh account
+      } else {
+        // Within 15 minutes: resend the verification link with a refreshed token and renewed 15-min expiry
+        const verificationToken = generateRandomToken();
+        const newExpiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+        const passwordHash = await hashPassword(password);
 
-      if (updateError) {
-        throw new Error(`Failed to update unverified account: ${updateError.message}`);
+        const { data: updatedUser, error: updateError } = await supabase
+          .from("users")
+          .update({
+            full_name: fullName.trim(),
+            password_hash: passwordHash,
+            link: verificationToken,
+            link_expires_at: newExpiresAt,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingUser.id)
+          .select("id, full_name, email, role, is_verified, created_at")
+          .single();
+
+        if (updateError) {
+          throw new Error(`Failed to update unverified account: ${updateError.message}`);
+        }
+
+        // Re-send verification email
+        await emailService.sendVerificationEmail({
+          email: normalizedEmail,
+          fullName: updatedUser.full_name,
+          token: verificationToken,
+          lang,
+        });
+
+        return {
+          user: updatedUser,
+          message: "Registration updated. A new verification link has been sent to your email address.",
+        };
       }
-
-      // Re-send verification email with new token
-      await emailService.sendVerificationEmail({
-        email: normalizedEmail,
-        fullName: updatedUser.full_name,
-        token: verificationToken,
-        lang,
-      });
-
-      return {
-        user: updatedUser,
-        message: "Registration updated. A new verification link has been sent to your email address.",
-      };
     }
 
     const passwordHash = await hashPassword(password);
@@ -134,7 +144,9 @@ class AuthService {
     }
 
     if (user.link_expires_at && new Date(user.link_expires_at) < new Date(now)) {
-      const err = new Error("Verification link has expired. Please request a new one.");
+      // If 15 minutes expired, delete unverified account from database
+      await supabase.from("users").delete().eq("id", user.id);
+      const err = new Error("Verification link has expired (15 minutes). The unverified account has been removed. Please sign up again.");
       err.statusCode = 400;
       err.isOperational = true;
       throw err;
@@ -168,7 +180,7 @@ class AuthService {
 
     const { data: user } = await supabase
       .from("users")
-      .select("id, full_name, is_verified")
+      .select("id, full_name, is_verified, link_expires_at")
       .eq("email", normalizedEmail)
       .maybeSingle();
 
@@ -181,14 +193,22 @@ class AuthService {
       return { message: "This account is already verified. You can log in directly." };
     }
 
+    const now = new Date();
+    const currentExpiresAt = user.link_expires_at ? new Date(user.link_expires_at) : null;
+    if (currentExpiresAt && currentExpiresAt <= now) {
+      // 15 min was done: delete unverified account
+      await supabase.from("users").delete().eq("id", user.id);
+      return { message: "The verification period has expired (15 minutes). The unverified account has been removed. Please sign up again." };
+    }
+
     const verificationToken = generateRandomToken();
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // exactly 15 minutes
+    const newExpiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // exactly 15 minutes
 
     await supabase
       .from("users")
       .update({
         link: verificationToken,
-        link_expires_at: expiresAt,
+        link_expires_at: newExpiresAt,
         updated_at: new Date().toISOString(),
       })
       .eq("id", user.id);

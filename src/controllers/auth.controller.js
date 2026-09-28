@@ -16,6 +16,30 @@ function extractLanguage(req) {
   return "de";
 }
 
+function resolveFrontendUrl(req) {
+  if (process.env.FRONTEND_URL) {
+    return process.env.FRONTEND_URL.replace(/\/+$/, "");
+  }
+  const origin = (req && (req.get("origin") || req.get("referer"))) || "";
+  if (origin.includes("german-auto-frontend.vercel.app") || origin.includes("vercel.app")) {
+    return "https://german-auto-frontend.vercel.app";
+  }
+  if (process.env.NODE_ENV === "production") {
+    return "https://german-auto-frontend.vercel.app";
+  }
+  return "http://localhost:5173";
+}
+
+function resolveRedirectUri(req) {
+  if (process.env.BACKEND_URL) {
+    return `${process.env.BACKEND_URL.replace(/\/+$/, "")}/api/auth/google/callback`;
+  }
+  const host = req.get("host") || "";
+  const isVercel = host.includes("vercel.app");
+  const protocol = isVercel ? "https" : req.protocol;
+  return `${protocol}://${host}/api/auth/google/callback`;
+}
+
 class AuthController {
   async signup(req, res, next) {
     try {
@@ -179,8 +203,8 @@ class AuthController {
 
   async googleAuthUrl(req, res, next) {
     try {
-      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
-      const redirectUri = `${req.protocol}://${req.get("host")}/api/auth/google/callback`;
+      const frontendUrl = resolveFrontendUrl(req);
+      const redirectUri = resolveRedirectUri(req);
 
       if (!process.env.GOOGLE_CLIENT_ID) {
         if (req.accepts("html") && !req.xhr) {
@@ -202,7 +226,7 @@ class AuthController {
   }
 
   async googleAuthCallback(req, res, next) {
-    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+    const frontendUrl = resolveFrontendUrl(req);
     try {
       const { code, error } = req.query;
 
@@ -210,7 +234,7 @@ class AuthController {
         return res.redirect(`${frontendUrl}/login?error=${encodeURIComponent(error)}`);
       }
 
-      const redirectUri = `${req.protocol}://${req.get("host")}/api/auth/google/callback`;
+      const redirectUri = resolveRedirectUri(req);
       const { user, token } = await authService.googleAuth({ code, redirectUri });
 
       // Set JWT in HttpOnly cookie named 'german_auto_jwt'

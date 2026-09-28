@@ -25,6 +25,7 @@ app.use(helmet());
 
 // CORS configuration
 const allowedOrigins = [
+  "https://german-auto-frontend.vercel.app",
   "http://localhost:5173",
   "http://localhost:3000",
   "http://127.0.0.1:5173",

@@ -25,6 +25,10 @@ class EmailService {
     if (process.env.NODE_ENV === "test" || process.env.EMAIL_PROVIDER === "test") {
       return "test";
     }
+    // High-deliverability SMTP (e.g. Gmail App Password) sends to ANY email without domain restrictions
+    if (process.env.SMTP_USER && (process.env.SMTP_PASS || process.env.SMTP_PASSWORD)) {
+      return "smtp";
+    }
     if (process.env.RESEND_API_KEY) {
       return "resend";
     }
@@ -32,7 +36,7 @@ class EmailService {
   }
 
   getFrontendUrl() {
-    return (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/+$/, "");
+    return (process.env.FRONTEND_URL || "https://german-auto-frontend.vercel.app").replace(/\/+$/, "");
   }
 
   getFromAddress() {
@@ -464,7 +468,52 @@ Falls Sie diese Anfrage nicht gestellt haben, bleibt Ihr Passwort unverändert.
       }
     }
 
-    // ── 2. UNCONFIGURED PRODUCTION WARNING ────────────────────────────────────
+    // ── 2. REAL SMTP / GMAIL PRODUCTION PROVIDER ──────────────────────────────
+    if (provider === "smtp") {
+      try {
+        const nodemailer = require("nodemailer");
+        const host = process.env.SMTP_HOST || "smtp.gmail.com";
+        const port = parseInt(process.env.SMTP_PORT || "465", 10);
+        const secure = process.env.SMTP_SECURE === "true" || port === 465;
+        const user = process.env.SMTP_USER;
+        const pass = process.env.SMTP_PASS || process.env.SMTP_PASSWORD;
+        const from = process.env.EMAIL_FROM || `German Auto <${user}>`;
+
+        const transporter = nodemailer.createTransport({
+          host,
+          port,
+          secure,
+          auth: { user, pass },
+        });
+
+        const info = await transporter.sendMail({
+          from,
+          to,
+          subject,
+          text,
+          html,
+        });
+
+        return {
+          success: true,
+          sent: true,
+          provider: "smtp",
+          id: info.messageId,
+          recipient: to,
+          subject,
+        };
+      } catch (err) {
+        console.error(`[EmailService] SMTP delivery error: ${err.message}`);
+        return {
+          success: false,
+          sent: false,
+          provider: "smtp",
+          error: err.message,
+        };
+      }
+    }
+
+    // ── 3. UNCONFIGURED PRODUCTION WARNING ────────────────────────────────────
     if (process.env.NODE_ENV === "production") {
       console.error(
         `[EmailService] CRITICAL: Email to <${to}> could not be delivered. RESEND_API_KEY is not configured in production environment.`
