@@ -173,14 +173,22 @@ async function testSignup() {
     assert.ok(diffMin > 13 && diffMin <= 16, `Verification link expiry must be 15 minutes (was ${diffMin.toFixed(1)}m)`);
   });
 
-  await test("Duplicate email → 409", async () => {
-    const { status } = await apiPost("/api/auth/signup", {
-      full_name: "Dup",
+  await test("Unverified email re-signup → 201 with new verification link", async () => {
+    const userBefore = await getUser(TEST_EMAIL);
+    const oldToken = userBefore.link;
+
+    const { status, data } = await apiPost("/api/auth/signup", {
+      full_name: "Re-Signup Name",
       email: TEST_EMAIL,
       password: TEST_PASSWORD,
       confirm_password: TEST_PASSWORD,
     });
-    assert.strictEqual(status, 409);
+    assert.strictEqual(status, 201);
+    assert.ok(data.message.includes("verification link has been sent"));
+
+    const userAfter = await getUser(TEST_EMAIL);
+    assert.ok(userAfter.link);
+    assert.notStrictEqual(userAfter.link, oldToken, "Token should be refreshed on re-signup");
   });
 }
 
@@ -262,6 +270,16 @@ async function testEmailVerification() {
     assert.strictEqual(userAfter.is_verified, true);
     assert.strictEqual(userAfter.link, null, "Token must be cleared");
     assert.strictEqual(userAfter.link_expires_at, null, "Expiry must be cleared");
+  });
+
+  await test("Verified account duplicate signup → 409", async () => {
+    const { status } = await apiPost("/api/auth/signup", {
+      full_name: "Dup Verified",
+      email: TEST_EMAIL,
+      password: TEST_PASSWORD,
+      confirm_password: TEST_PASSWORD,
+    });
+    assert.strictEqual(status, 409);
   });
 
   await test("Reusing the consumed verification token → 400", async () => {

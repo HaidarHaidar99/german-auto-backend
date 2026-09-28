@@ -14,15 +14,52 @@ class AuthService {
     // Check if user already exists
     const { data: existingUser } = await supabase
       .from("users")
-      .select("id, is_verified")
+      .select("id, full_name, is_verified")
       .eq("email", normalizedEmail)
       .maybeSingle();
 
     if (existingUser) {
-      const err = new Error("An account with this email address already exists.");
-      err.statusCode = 409;
-      err.isOperational = true;
-      throw err;
+      if (existingUser.is_verified) {
+        const err = new Error("An account with this email address already exists. Please log in.");
+        err.statusCode = 409;
+        err.isOperational = true;
+        throw err;
+      }
+
+      // User exists but has NOT verified yet: update credentials & generate a fresh 15-minute token
+      const passwordHash = await hashPassword(password);
+      const verificationToken = generateRandomToken();
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // exactly 15 minutes
+
+      const { data: updatedUser, error: updateError } = await supabase
+        .from("users")
+        .update({
+          full_name: fullName.trim(),
+          password_hash: passwordHash,
+          link: verificationToken,
+          link_expires_at: expiresAt,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existingUser.id)
+        .select("id, full_name, email, role, is_verified, created_at")
+        .single();
+
+      if (updateError) {
+        throw new Error(`Failed to update unverified account: ${updateError.message}`);
+      }
+
+      // Re-send verification email with new token
+      await emailService.sendVerificationEmail({
+        email: normalizedEmail,
+        fullName: updatedUser.full_name,
+        token: verificationToken,
+        lang,
+      });
+
+      return {
+        user: updatedUser,
+        message: "Registration updated. A new verification link has been sent to your email address.",
+      };
     }
 
     const passwordHash = await hashPassword(password);

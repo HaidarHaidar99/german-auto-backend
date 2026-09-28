@@ -17,14 +17,48 @@ const { successResponse } = require("./utils/response.util");
 
 const app = express();
 
+// Trust reverse proxy (Vercel, Nginx, cloud load balancers) for secure cookies and https protocol
+app.set("trust proxy", 1);
+
 // Security headers
 app.use(helmet());
 
 // CORS configuration
-const allowedOrigin = process.env.FRONTEND_URL || "http://localhost:5173";
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "http://127.0.0.1:5173",
+  process.env.FRONTEND_URL,
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: allowedOrigin,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (e.g. mobile apps, curl, server-to-server)
+      if (!origin) return callback(null, true);
+
+      // Check allowed list
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      // Allow any Vercel preview or production deployment domain (*.vercel.app)
+      try {
+        const hostname = new URL(origin).hostname;
+        if (hostname.endsWith(".vercel.app")) {
+          return callback(null, true);
+        }
+      } catch {
+        // invalid URL
+      }
+
+      // If in development, allow any origin
+      if (process.env.NODE_ENV !== "production") {
+        return callback(null, true);
+      }
+
+      return callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
     credentials: true,
   })
 );
