@@ -27,7 +27,7 @@ class AuthService {
 
     const passwordHash = await hashPassword(password);
     const verificationToken = generateRandomToken();
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // exactly 15 minutes
 
     const { data: newUser, error: insertError } = await supabase
       .from("users")
@@ -144,7 +144,7 @@ class AuthService {
     }
 
     const verificationToken = generateRandomToken();
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // exactly 15 minutes
 
     await supabase
       .from("users")
@@ -241,7 +241,7 @@ class AuthService {
     }
 
     const resetToken = generateRandomToken();
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // exactly 15 minutes
 
     await supabase
       .from("users")
@@ -404,6 +404,218 @@ class AuthService {
     }
 
     return user;
+  }
+
+  /**
+   * Generate Google OAuth authorization URL
+   */
+  getGoogleAuthUrl({ redirectUri }) {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    if (!clientId) {
+      const err = new Error("GOOGLE_CLIENT_ID is not configured.");
+      err.statusCode = 503;
+      err.isOperational = true;
+      throw err;
+    }
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      response_type: "code",
+      scope: "openid email profile",
+      access_type: "offline",
+      prompt: "select_account",
+    });
+
+    return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+  }
+
+  /**
+   * Verify Google OAuth credential (ID token) or exchange authorization code
+   * STRICTLY RESTRICTED TO ROLE: CUSTOMER
+   */
+  async googleAuth({ credential, code, redirectUri }) {
+    let email = null;
+    let fullName = null;
+    let emailVerified = false;
+
+    if (credential) {
+      // 1. Verify Google ID token via Google's tokeninfo API
+      const response = await fetch(
+        `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`
+      );
+
+      if (!response.ok) {
+        const err = new Error("Invalid or expired Google authentication token.");
+        err.statusCode = 401;
+        err.isOperational = true;
+        throw err;
+      }
+
+      const payload = await response.json();
+      email = payload.email;
+      fullName = payload.name;
+      emailVerified = payload.email_verified === "true" || payload.email_verified === true;
+    } else if (code) {
+      // 2. Exchange authorization code for tokens
+      const clientId = process.env.GOOGLE_CLIENT_ID;
+      const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+      if (!clientId || !clientSecret) {
+        const err = new Error(
+          "Google OAuth credentials (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET) are not configured."
+        );
+        err.statusCode = 503;
+        err.isOperational = true;
+        throw err;
+      }
+
+      const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          code,
+          client_id: clientId,
+          client_secret: clientSecret,
+          redirect_uri: redirectUri,
+          grant_type: "authorization_code",
+        }),
+      });
+
+      if (!tokenRes.ok) {
+        const errData = await tokenRes.json().catch(() => ({}));
+        const err = new Error(
+          errData.error_description || "Failed to exchange Google authorization code."
+        );
+        err.statusCode = 401;
+        err.isOperational = true;
+        throw err;
+      }
+
+      const tokenData = await tokenRes.json();
+
+      if (tokenData.id_token) {
+        const infoRes = await fetch(
+          `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(tokenData.id_token)}`
+        );
+        if (infoRes.ok) {
+          const info = await infoRes.json();
+          email = info.email;
+          fullName = info.name;
+          emailVerified = info.email_verified === "true" || info.email_verified === true;
+        }
+      }
+
+      if (!email && tokenData.access_token) {
+        const userRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+          headers: { Authorization: `Bearer ${tokenData.access_token}` },
+        });
+        if (userRes.ok) {
+          const userProfile = await userRes.json();
+          email = userProfile.email;
+          fullName = userProfile.name;
+          emailVerified = userProfile.email_verified === true || userProfile.email_verified === "true";
+        }
+      }
+    } else {
+      const err = new Error("Google credential or authorization code is required.");
+      err.statusCode = 400;
+      err.isOperational = true;
+      throw err;
+    }
+
+    if (!email || !emailVerified) {
+      const err = new Error("Google account email could not be verified.");
+      err.statusCode = 400;
+      err.isOperational = true;
+      throw err;
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // Check if user already exists
+    const { data: existingUser } = await supabase
+      .from("users")
+      .select("id, full_name, email, role, is_verified, token_version, favorite_car_ids, notification_preferences")
+      .eq("email", normalizedEmail)
+      .maybeSingle();
+
+    let userToAuth = null;
+
+    if (existingUser) {
+      // RULE: Google authentication is ONLY available for CUSTOMER accounts!
+      // Administrative accounts (ADMIN, SUPER_ADMIN) are strictly forbidden from Google OAuth.
+      if (existingUser.role === "ADMIN" || existingUser.role === "SUPER_ADMIN") {
+        const err = new Error(
+          "Google authentication is restricted to customer accounts only. Administrators must use the secure admin login portal."
+        );
+        err.statusCode = 403;
+        err.isOperational = true;
+        throw err;
+      }
+
+      // If user was previously unverified, mark verified now
+      if (!existingUser.is_verified) {
+        await supabase
+          .from("users")
+          .update({ is_verified: true, updated_at: new Date().toISOString() })
+          .eq("id", existingUser.id);
+        existingUser.is_verified = true;
+      }
+
+      userToAuth = existingUser;
+    } else {
+      // Create new customer account with role CUSTOMER
+      const randomPassword = await hashPassword(generateRandomToken());
+      const { data: newUser, error: insertError } = await supabase
+        .from("users")
+        .insert({
+          full_name: (fullName && fullName.trim()) || normalizedEmail.split("@")[0],
+          email: normalizedEmail,
+          password_hash: randomPassword,
+          is_verified: true,
+          role: "CUSTOMER", // STRICTLY CUSTOMER! Never ADMIN or SUPER_ADMIN
+          token_version: 0,
+          favorite_car_ids: [],
+          notification_preferences: {
+            forms: true,
+            reviews: true,
+            push: true,
+            sound: true,
+          },
+          push_subscriptions: [],
+        })
+        .select("id, full_name, email, role, is_verified, favorite_car_ids, notification_preferences")
+        .single();
+
+      if (insertError) {
+        throw new Error(`Failed to create Google customer account: ${insertError.message}`);
+      }
+
+      userToAuth = newUser;
+    }
+
+    // Issue JWT with 24h lifetime
+    const token = signToken({
+      id: userToAuth.id,
+      role: userToAuth.role,
+      token_version: userToAuth.token_version || 0,
+    });
+
+    const sanitizedUser = {
+      id: userToAuth.id,
+      full_name: userToAuth.full_name,
+      email: userToAuth.email,
+      role: userToAuth.role,
+      is_verified: userToAuth.is_verified,
+      favorite_car_ids: userToAuth.favorite_car_ids || [],
+      notification_preferences: userToAuth.notification_preferences || {},
+    };
+
+    return {
+      user: sanitizedUser,
+      token,
+    };
   }
 }
 

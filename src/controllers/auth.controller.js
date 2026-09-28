@@ -158,6 +158,72 @@ class AuthController {
       next(err);
     }
   }
+
+  async googleAuthUrl(req, res, next) {
+    try {
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+      const redirectUri = `${req.protocol}://${req.get("host")}/api/auth/google/callback`;
+
+      if (!process.env.GOOGLE_CLIENT_ID) {
+        if (req.accepts("html") && !req.xhr) {
+          return res.redirect(`${frontendUrl}/login?error=google_not_configured`);
+        }
+        return res.status(503).json({
+          success: false,
+          error: {
+            message: "Google OAuth credentials (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET) are not configured.",
+          },
+        });
+      }
+
+      const url = authService.getGoogleAuthUrl({ redirectUri });
+      return res.redirect(url);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async googleAuthCallback(req, res, next) {
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+    try {
+      const { code, error } = req.query;
+
+      if (error) {
+        return res.redirect(`${frontendUrl}/login?error=${encodeURIComponent(error)}`);
+      }
+
+      const redirectUri = `${req.protocol}://${req.get("host")}/api/auth/google/callback`;
+      const { user, token } = await authService.googleAuth({ code, redirectUri });
+
+      // Set JWT in HttpOnly cookie named 'german_auto_jwt'
+      setAuthCookie(res, token);
+
+      return res.redirect(`${frontendUrl}/account`);
+    } catch (err) {
+      return res.redirect(`${frontendUrl}/login?error=${encodeURIComponent(err.message)}`);
+    }
+  }
+
+  async googleAuth(req, res, next) {
+    try {
+      const { credential, code, redirect_uri } = req.body;
+      const { user, token } = await authService.googleAuth({
+        credential,
+        code,
+        redirectUri: redirect_uri,
+      });
+
+      // Set JWT in HttpOnly cookie named 'german_auto_jwt'
+      setAuthCookie(res, token);
+
+      return successResponse(res, {
+        message: "Google authentication successful.",
+        data: { user },
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 module.exports = new AuthController();

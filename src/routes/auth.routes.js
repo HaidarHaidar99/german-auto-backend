@@ -29,6 +29,11 @@ router.post(
 router.post("/login", authLimiter, validate(loginValidator), authController.login);
 router.post("/logout", authController.logout);
 
+// Public — Google OAuth (Customer Accounts Only)
+router.get("/google", authLimiter, authController.googleAuthUrl);
+router.get("/google/callback", authController.googleAuthCallback);
+router.post("/google", authLimiter, authController.googleAuth);
+
 // Public — password recovery
 router.post(
   "/forgot-password",

@@ -162,12 +162,15 @@ async function testSignup() {
     assert.strictEqual(data.data.user.reset_link, undefined, "reset token must not be exposed");
   });
 
-  await test("DB: is_verified=false, link token stored", async () => {
+  await test("DB: is_verified=false, link token stored with 15m expiration", async () => {
     const user = await getUser(TEST_EMAIL);
     assert.ok(user, "User should exist");
     assert.strictEqual(user.is_verified, false);
     assert.ok(user.link, "Verification token should be stored");
     assert.ok(user.link_expires_at, "Expiry should be stored");
+    const diffMs = new Date(user.link_expires_at).getTime() - Date.now();
+    const diffMin = diffMs / (60 * 1000);
+    assert.ok(diffMin > 13 && diffMin <= 16, `Verification link expiry must be 15 minutes (was ${diffMin.toFixed(1)}m)`);
   });
 
   await test("Duplicate email → 409", async () => {
@@ -342,8 +345,9 @@ async function testLogin() {
 
     // JWT must be in cookie, NOT in body
     const cookieHeader = headers.get("set-cookie") || "";
-    assert.ok(cookieHeader.includes("token="), "Cookie should be named 'token'");
+    assert.ok(cookieHeader.includes("german_auto_jwt="), "Cookie should be named 'german_auto_jwt'");
     assert.ok(cookieHeader.toLowerCase().includes("httponly"), "Cookie must be HttpOnly");
+    assert.ok(cookieHeader.includes("Max-Age=86400"), "Cookie Max-Age must be 86400 (24 hours)");
     assert.strictEqual(data.data.token, undefined, "JWT must NOT appear in body");
     assert.strictEqual(data.data.user.password_hash, undefined, "password_hash must not be exposed");
     assert.strictEqual(data.data.user.link, undefined, "verification link must not be exposed");
@@ -397,7 +401,7 @@ async function testLogout(authCookie) {
     const setCookie = headers.get("set-cookie") || "";
     // Cleared cookie has empty value and/or Max-Age=0
     assert.ok(
-      setCookie.includes("token=") || setCookie.includes("Max-Age=0"),
+      setCookie.includes("german_auto_jwt=") || setCookie.includes("Max-Age=0"),
       "Cookie clear header should be sent"
     );
   });
@@ -439,10 +443,9 @@ async function testForgotPassword() {
     const user = await getUser(TEST_EMAIL);
     assert.ok(user.reset_link, "Reset token should be stored in DB");
     assert.ok(user.reset_link_expires_at, "Expiry should be stored");
-    assert.ok(
-      new Date(user.reset_link_expires_at) > new Date(),
-      "Expiry should be in the future"
-    );
+    const diffMs = new Date(user.reset_link_expires_at).getTime() - Date.now();
+    const diffMin = diffMs / (60 * 1000);
+    assert.ok(diffMin > 13 && diffMin <= 16, `Reset link expiry must be 15 minutes (was ${diffMin.toFixed(1)}m)`);
   });
 }
 
@@ -688,12 +691,108 @@ async function testRoleAuthorization() {
   });
 
   await test("Invalid/garbage cookie → 401 on protected route", async () => {
-    const { status } = await apiGet("/api/auth/me", "token=garbage-token-value");
+    const { status } = await apiGet("/api/auth/me", "german_auto_jwt=garbage-token-value");
     assert.strictEqual(status, 401);
   });
 }
 
-// ─── SECTION 13: DELETE ACCOUNT ──────────────────────────────────────────────
+// ─── SECTION 13: GOOGLE OAUTH SECURITY & RESTRICTIONS ─────────────────────────
+
+async function testGoogleOAuth() {
+  console.log("\n── GOOGLE OAUTH SECURITY & RESTRICTIONS ────────────────");
+
+  await test("GET /api/auth/google endpoint exists", async () => {
+    const res = await fetch(`http://127.0.0.1:${port}/api/auth/google`, {
+      redirect: "manual",
+    });
+    assert.ok(
+      res.status === 302 || res.status === 503,
+      `Status should be 302 redirect or 503 unconfigured (got ${res.status})`
+    );
+  });
+
+  await test("POST /api/auth/google without payload → 400", async () => {
+    const { status, data } = await apiPost("/api/auth/google", {});
+    assert.strictEqual(status, 400);
+    assert.ok(data.message.includes("credential or authorization code"));
+  });
+
+  await test("Google OAuth strictly forbids ADMIN / SUPER_ADMIN roles", async () => {
+    const authService = require("../services/auth.service");
+    
+    const originalFetch = global.fetch;
+    global.fetch = async (url, ...args) => {
+      if (typeof url === "string" && url.includes("oauth2.googleapis.com/tokeninfo")) {
+        return {
+          ok: true,
+          json: async () => ({
+            email: "hh1816341@gmail.com", // existing ADMIN account
+            name: "Admin User",
+            email_verified: "true",
+          }),
+        };
+      }
+      return originalFetch(url, ...args);
+    };
+
+    try {
+      let threw = false;
+      try {
+        await authService.googleAuth({ credential: "mock-admin-google-token" });
+      } catch (err) {
+        threw = true;
+        assert.strictEqual(err.statusCode, 403, "Must return 403 forbidden");
+        assert.ok(
+          err.message.includes("restricted to customer accounts only"),
+          `Expected admin rejection error message, got: ${err.message}`
+        );
+      }
+      assert.ok(threw, "Admin Google OAuth MUST throw 403 error");
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  await test("Google OAuth allows CUSTOMER registration/login with 24h session", async () => {
+    const authService = require("../services/auth.service");
+    const GOOGLE_CUST_EMAIL = `google.cust.${RUN_ID}@germanautotestonly.invalid`;
+
+    const originalFetch = global.fetch;
+    global.fetch = async (url, ...args) => {
+      if (typeof url === "string" && url.includes("oauth2.googleapis.com/tokeninfo")) {
+        return {
+          ok: true,
+          json: async () => ({
+            email: GOOGLE_CUST_EMAIL,
+            name: "Google Customer",
+            email_verified: "true",
+          }),
+        };
+      }
+      return originalFetch(url, ...args);
+    };
+
+    try {
+      const result = await authService.googleAuth({ credential: "mock-cust-google-token" });
+      assert.ok(result.user);
+      assert.strictEqual(result.user.role, "CUSTOMER", "Created role MUST be CUSTOMER");
+      assert.strictEqual(result.user.is_verified, true, "Google users are auto-verified");
+      assert.ok(result.token, "JWT token must be issued");
+
+      const { verifyToken } = require("../utils/jwt.util");
+      const decoded = verifyToken(result.token);
+      assert.strictEqual(decoded.role, "CUSTOMER");
+      const lifetimeSec = decoded.exp - decoded.iat;
+      assert.strictEqual(lifetimeSec, 86400, "JWT session lifetime must be exactly 86400 seconds (24 hours)");
+
+      await cleanupUser(GOOGLE_CUST_EMAIL);
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+}
+
+// ─── SECTION 14: DELETE ACCOUNT ──────────────────────────────────────────────
 
 async function testDeleteAccount() {
   console.log("\n── DELETE ACCOUNT ───────────────────────────────────────");
@@ -756,6 +855,7 @@ async function main() {
     await testTokenVersionInvalidation();
     await testChangePassword();
     await testRoleAuthorization();
+    await testGoogleOAuth();
     await testDeleteAccount();
   } catch (crashErr) {
     console.error("\n[CRASH] Test suite crashed unexpectedly:", crashErr.message);

@@ -231,7 +231,8 @@ class CarService {
       page = 1,
       limit = DEFAULT_PAGE_SIZE,
       brand, model, category, fuel_type, transmission, condition,
-      status, featured, sort = "newest",
+      status, featured, sort = "newest", search, is_visible,
+      min_price, max_price, min_mileage, max_mileage,
     } = queryParams;
 
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
@@ -243,14 +244,27 @@ class CarService {
       .from("cars")
       .select(LIST_COLUMNS, { count: "exact" });
 
+    // Server-side text search (brand, model, title)
+    if (search && typeof search === "string" && search.trim().length > 0) {
+      const term = `%${search.trim()}%`;
+      query = query.or(`brand.ilike.${term},model.ilike.${term},title.ilike.${term}`);
+    }
+
     if (brand) query = query.ilike("brand", `%${brand}%`);
     if (model) query = query.ilike("model", `%${model}%`);
     if (category) query = query.eq("category", category);
     if (fuel_type) query = query.eq("fuel_type", fuel_type);
     if (transmission) query = query.eq("transmission", transmission);
     if (condition) query = query.eq("condition", condition);
-    if (status) query = query.eq("status", status);
+    if (status && status !== "ALL") query = query.eq("status", status);
     if (featured === "true" || featured === true) query = query.eq("is_featured", true);
+    if (is_visible !== undefined && is_visible !== "" && is_visible !== "ALL") {
+      query = query.eq("is_visible", is_visible === "true" || is_visible === true);
+    }
+    if (min_price !== undefined && min_price !== "") query = query.gte("price", Number(min_price));
+    if (max_price !== undefined && max_price !== "") query = query.lte("price", Number(max_price));
+    if (min_mileage !== undefined && min_mileage !== "") query = query.gte("mileage_km", Number(min_mileage));
+    if (max_mileage !== undefined && max_mileage !== "") query = query.lte("mileage_km", Number(max_mileage));
 
     query = this._applySort(query, sort).range(from, to);
 

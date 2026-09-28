@@ -9,6 +9,7 @@ const formRoutes         = require("./routes/form.routes");
 const reviewRoutes       = require("./routes/review.routes");
 const notificationRoutes = require("./routes/notification.routes");
 const settingsRoutes     = require("./routes/settings.routes");
+const adminUserRoutes    = require("./routes/adminUser.routes");
 const notFound = require("./middleware/notFound.middleware");
 const errorHandler = require("./middleware/error.middleware");
 const { generalApiLimiter } = require("./middleware/rateLimit.middleware");
@@ -55,6 +56,7 @@ app.use("/api/forms",         formRoutes);
 app.use("/api/reviews",       reviewRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/settings",      settingsRoutes);
+app.use("/api/admin/users",   adminUserRoutes);
 
 // 404 & Centralized Error Handler
 app.use(notFound);

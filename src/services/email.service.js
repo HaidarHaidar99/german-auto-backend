@@ -31,7 +31,7 @@ class EmailService {
     const verificationUrl = `${frontendUrl}/verify-email?token=${encodeURIComponent(token)}`;
 
     const subject = "Bitte bestätigen Sie Ihre E-Mail-Adresse / Please verify your email";
-    const text = `Hallo ${fullName},\n\nBitte bestätigen Sie Ihre E-Mail-Adresse, indem Sie auf folgenden Link klicken:\n${verificationUrl}\n\nDieser Link ist 24 Stunden gültig.\n\n---\n\nHello ${fullName},\n\nPlease verify your email address by clicking the link below:\n${verificationUrl}\n\nThis link is valid for 24 hours.`;
+    const text = `Hallo ${fullName},\n\nBitte bestätigen Sie Ihre E-Mail-Adresse, indem Sie auf folgenden Link klicken:\n${verificationUrl}\n\nDieser Link ist 15 Minuten gültig.\n\n---\n\nHello ${fullName},\n\nPlease verify your email address by clicking the link below:\n${verificationUrl}\n\nThis link is valid for 15 minutes.`;
 
     return this.dispatch({
       to: email,
@@ -44,6 +44,7 @@ class EmailService {
           <p>Vielen Dank für Ihre Registrierung. Bitte bestätigen Sie Ihre E-Mail-Adresse:</p>
           <p><a href="${verificationUrl}" style="display: inline-block; padding: 12px 24px; background: #000; color: #fff; text-decoration: none; border-radius: 4px;">E-Mail bestätigen</a></p>
           <p style="color: #666; font-size: 13px;">Oder kopieren Sie diesen Link in Ihren Browser:<br>${verificationUrl}</p>
+          <p style="color: #888; font-size: 12px;">Dieser Link ist 15 Minuten gültig / This link is valid for 15 minutes.</p>
           <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
           <p>Hello ${fullName},</p>
           <p>Thank you for registering. Please confirm your email address by clicking above.</p>
@@ -60,7 +61,7 @@ class EmailService {
     const resetUrl = `${frontendUrl}/reset-password?token=${encodeURIComponent(token)}`;
 
     const subject = "Passwort zurücksetzen / Password Reset Request";
-    const text = `Hallo ${fullName},\n\nSie haben das Zurücksetzen Ihres Passworts angefordert. Klicken Sie auf folgenden Link:\n${resetUrl}\n\nDieser Link ist 1 Stunde gültig. Falls Sie dies nicht angefordert haben, ignorieren Sie diese E-Mail.\n\n---\n\nHello ${fullName},\n\nYou requested a password reset. Click the following link:\n${resetUrl}\n\nThis link is valid for 1 hour. If you did not request this, please ignore this email.`;
+    const text = `Hallo ${fullName},\n\nSie haben das Zurücksetzen Ihres Passworts angefordert. Klicken Sie auf folgenden Link:\n${resetUrl}\n\nDieser Link ist 15 Minuten gültig. Falls Sie dies nicht angefordert haben, ignorieren Sie diese E-Mail.\n\n---\n\nHello ${fullName},\n\nYou requested a password reset. Click the following link:\n${resetUrl}\n\nThis link is valid for 15 minutes. If you did not request this, please ignore this email.`;
 
     return this.dispatch({
       to: email,
@@ -72,7 +73,7 @@ class EmailService {
           <p>Hallo ${fullName},</p>
           <p>Sie haben das Zurücksetzen Ihres Passworts angefordert. Klicken Sie auf die Schaltfläche:</p>
           <p><a href="${resetUrl}" style="display: inline-block; padding: 12px 24px; background: #000; color: #fff; text-decoration: none; border-radius: 4px;">Passwort zurücksetzen</a></p>
-          <p style="color: #666; font-size: 13px;">Link gültig für 1 Stunde:<br>${resetUrl}</p>
+          <p style="color: #666; font-size: 13px;">Link gültig für 15 Minuten / Valid for 15 minutes:<br>${resetUrl}</p>
           <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
           <p>Hello ${fullName},</p>
           <p>You requested a password reset. If you did not make this request, please ignore this email.</p>

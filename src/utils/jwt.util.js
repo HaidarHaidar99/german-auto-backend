@@ -1,6 +1,6 @@
 const jwt = require("jsonwebtoken");
 
-const JWT_COOKIE_NAME = "token";
+const JWT_COOKIE_NAME = "german_auto_jwt";
 
 const getJwtSecret = () => {
   if (process.env.JWT_SECRET) {
@@ -19,7 +19,7 @@ const getJwtSecret = () => {
  */
 const signToken = (payload) => {
   const secret = getJwtSecret();
-  const expiresIn = process.env.JWT_EXPIRES_IN || "15m";
+  const expiresIn = process.env.JWT_EXPIRES_IN || "24h";
 
   return jwt.sign(payload, secret, {
     expiresIn,
@@ -38,7 +38,7 @@ const verifyToken = (token) => {
  * Calculate cookie maxAge in milliseconds based on JWT_EXPIRES_IN
  */
 const getCookieMaxAgeMs = () => {
-  const expiry = process.env.JWT_EXPIRES_IN || "15m";
+  const expiry = process.env.JWT_EXPIRES_IN || "24h";
   const num = parseInt(expiry, 10);
 
   if (expiry.endsWith("d")) return num * 24 * 60 * 60 * 1000;
@@ -46,8 +46,8 @@ const getCookieMaxAgeMs = () => {
   if (expiry.endsWith("m")) return num * 60 * 1000;
   if (expiry.endsWith("s")) return num * 1000;
 
-  // Default to 15 minutes
-  return 15 * 60 * 1000;
+  // Default to 24 hours (1 day login session)
+  return 24 * 60 * 60 * 1000;
 };
 
 /**

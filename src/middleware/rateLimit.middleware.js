@@ -65,9 +65,23 @@ const reviewSubmissionLimiter = rateLimit({
   handler: rateLimitHandler("Too many review submissions. Please try again later."),
 });
 
+/**
+ * Limiter for admin user management (POST /api/admin/users — account creation)
+ * Production: 20 requests per 15 minutes per IP
+ * Development/Test: 500 requests per 15 minutes
+ */
+const adminUserLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: IS_PRODUCTION ? 20 : 500,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: rateLimitHandler("Too many admin user management requests. Please try again later."),
+});
+
 module.exports = {
   authLimiter,
   emailActionLimiter,
   generalApiLimiter,
   reviewSubmissionLimiter,
+  adminUserLimiter,
 };
