@@ -8,7 +8,7 @@ class AuthService {
   /**
    * Register a new CUSTOMER account
    */
-  async signup({ fullName, email, password }) {
+  async signup({ fullName, email, password, lang }) {
     const normalizedEmail = email.toLowerCase().trim();
 
     // Check if user already exists
@@ -61,6 +61,7 @@ class AuthService {
       email: normalizedEmail,
       fullName: newUser.full_name,
       token: verificationToken,
+      lang,
     });
 
     return {
@@ -125,7 +126,7 @@ class AuthService {
   /**
    * Resend account verification email
    */
-  async resendVerification({ email }) {
+  async resendVerification({ email, lang }) {
     const normalizedEmail = email.toLowerCase().trim();
 
     const { data: user } = await supabase
@@ -159,6 +160,7 @@ class AuthService {
       email: normalizedEmail,
       fullName: user.full_name,
       token: verificationToken,
+      lang,
     });
 
     return { message: "If an unverified account exists, a new verification link was sent." };
@@ -226,7 +228,7 @@ class AuthService {
   /**
    * Request password reset token
    */
-  async forgotPassword({ email }) {
+  async forgotPassword({ email, lang }) {
     const normalizedEmail = email.toLowerCase().trim();
 
     const { data: user } = await supabase
@@ -256,6 +258,7 @@ class AuthService {
       email: normalizedEmail,
       fullName: user.full_name,
       token: resetToken,
+      lang,
     });
 
     return { message: "If an account exists with this email, a password reset link has been sent." };

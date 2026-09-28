@@ -2,14 +2,30 @@ const authService = require("../services/auth.service");
 const { successResponse } = require("../utils/response.util");
 const { setAuthCookie, clearAuthCookie } = require("../utils/jwt.util");
 
+function extractLanguage(req) {
+  if (req.body && typeof req.body.lang === "string") {
+    const l = req.body.lang.toLowerCase().trim();
+    if (l.startsWith("en")) return "en";
+    if (l.startsWith("de")) return "de";
+  }
+  const acceptLang = req.headers["accept-language"];
+  if (acceptLang && typeof acceptLang === "string") {
+    const l = acceptLang.toLowerCase();
+    if (l.startsWith("en") || l.includes(",en") || l.includes(";en")) return "en";
+  }
+  return "de";
+}
+
 class AuthController {
   async signup(req, res, next) {
     try {
       const { full_name, email, password } = req.body;
+      const lang = extractLanguage(req);
       const result = await authService.signup({
         fullName: full_name,
         email,
         password,
+        lang,
       });
 
       return successResponse(res, {
@@ -43,7 +59,8 @@ class AuthController {
   async resendVerification(req, res, next) {
     try {
       const { email } = req.body;
-      const result = await authService.resendVerification({ email });
+      const lang = extractLanguage(req);
+      const result = await authService.resendVerification({ email, lang });
 
       return successResponse(res, {
         message: result.message,
@@ -85,7 +102,8 @@ class AuthController {
   async forgotPassword(req, res, next) {
     try {
       const { email } = req.body;
-      const result = await authService.forgotPassword({ email });
+      const lang = extractLanguage(req);
+      const result = await authService.forgotPassword({ email, lang });
 
       return successResponse(res, {
         message: result.message,

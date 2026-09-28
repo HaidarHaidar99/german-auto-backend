@@ -79,14 +79,67 @@ async function runTests() {
     assert.strictEqual(hashed.length, 64, "Hashed token must be 64 hex characters");
   });
 
-  // 4. Email Service Abstraction test
-  await testAsync("Email Service Abstraction Dispatch", async () => {
-    const res = await emailService.sendVerificationEmail({
-      email: "test@example.com",
-      fullName: "Test User",
-      token: "sample-token-123",
+  // 4. Email Service Abstraction test (Verification & Password Reset in DE & EN)
+  await testAsync("Email Service Abstraction Dispatch (German & English)", async () => {
+    emailService.clearSentEmails();
+
+    // German verification email
+    const deRes = await emailService.sendVerificationEmail({
+      email: "kunde@example.de",
+      fullName: "Max Mustermann",
+      token: "sample-token-de-123",
+      lang: "de",
     });
-    assert.strictEqual(res.success, true, "Email service dispatch should return success");
+    assert.strictEqual(deRes.success, true, "German verification dispatch should succeed");
+
+    const deMail = emailService.getLastEmail();
+    assert.strictEqual(deMail.to, "kunde@example.de");
+    assert.ok(deMail.subject.includes("Bestätigen Sie Ihre E-Mail-Adresse"), "Subject must be German");
+    assert.ok(deMail.text.includes("/verify?token=sample-token-de-123"), "Text must contain verify URL");
+    assert.ok(deMail.text.includes("15 Minuten"), "Text must specify 15-minute validity");
+    assert.ok(!deMail.text.includes("Please verify"), "German email must not contain mixed English text");
+
+    // English verification email
+    const enRes = await emailService.sendVerificationEmail({
+      email: "customer@example.com",
+      fullName: "John Doe",
+      token: "sample-token-en-456",
+      lang: "en",
+    });
+    assert.strictEqual(enRes.success, true, "English verification dispatch should succeed");
+
+    const enMail = emailService.getLastEmail();
+    assert.strictEqual(enMail.to, "customer@example.com");
+    assert.ok(enMail.subject.includes("Verify your email address"), "Subject must be English");
+    assert.ok(enMail.text.includes("/verify?token=sample-token-en-456"), "Text must contain verify URL");
+    assert.ok(enMail.text.includes("15 minutes"), "Text must specify 15-minute validity");
+    assert.ok(!enMail.text.includes("Bestätigen Sie"), "English email must not contain mixed German text");
+
+    // German password reset email
+    const deResetRes = await emailService.sendPasswordResetEmail({
+      email: "kunde@example.de",
+      fullName: "Max Mustermann",
+      token: "reset-token-de-789",
+      lang: "de",
+    });
+    assert.strictEqual(deResetRes.success, true, "German password reset dispatch should succeed");
+    const deResetMail = emailService.getLastEmail();
+    assert.ok(deResetMail.subject.includes("Passwort zurücksetzen"), "Reset subject must be German");
+    assert.ok(deResetMail.text.includes("/reset-password?token=reset-token-de-789"), "Text must contain reset URL");
+    assert.ok(deResetMail.text.includes("15 Minuten"), "Reset text must specify 15-minute validity");
+
+    // English password reset email
+    const enResetRes = await emailService.sendPasswordResetEmail({
+      email: "customer@example.com",
+      fullName: "John Doe",
+      token: "reset-token-en-012",
+      lang: "en",
+    });
+    assert.strictEqual(enResetRes.success, true, "English password reset dispatch should succeed");
+    const enResetMail = emailService.getLastEmail();
+    assert.ok(enResetMail.subject.includes("Reset your password"), "Reset subject must be English");
+    assert.ok(enResetMail.text.includes("/reset-password?token=reset-token-en-012"), "Text must contain reset URL");
+    assert.ok(enResetMail.text.includes("15 minutes"), "Reset text must specify 15-minute validity");
   });
 
   // 5. Storage Service Abstraction test
