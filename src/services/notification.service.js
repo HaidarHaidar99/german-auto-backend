@@ -173,6 +173,38 @@ class NotificationService {
   }
 
   /**
+   * Mark all notification entries as read for the authenticated admin
+   */
+  async markAllRead(userId) {
+    const feed = await this.getAdminFeed(userId, { limit: 100 });
+    const allIds = (feed.notifications || []).map((n) => n.id);
+
+    const { data: user } = await supabase
+      .from("users")
+      .select("notification_preferences")
+      .eq("id", userId)
+      .single();
+
+    const prefs = user?.notification_preferences || {};
+    const existing = Array.isArray(prefs.read_ids) ? prefs.read_ids : [];
+    const readIds = Array.from(new Set([...existing, ...allIds]));
+
+    const { error } = await supabase
+      .from("users")
+      .update({
+        notification_preferences: { ...prefs, read_ids: readIds },
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", userId);
+
+    if (error) {
+      throw new Error(`Failed to mark all as read: ${error.message}`);
+    }
+
+    return { marked_count: allIds.length, unread_count: 0 };
+  }
+
+  /**
    * Mark a notification entry as unread for the authenticated admin
    */
   async markUnread(userId, notificationId) {

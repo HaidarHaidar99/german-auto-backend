@@ -27,6 +27,22 @@ class NotificationController {
   }
 
   /**
+   * PATCH /api/notifications/read-all
+   * Mark all notifications as read
+   */
+  async markAllRead(req, res, next) {
+    try {
+      const result = await notificationService.markAllRead(req.user.id);
+      return successResponse(res, {
+        message: "All notifications marked as read.",
+        data: result,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
    * PATCH /api/notifications/:id/read
    * Mark notification as read
    */

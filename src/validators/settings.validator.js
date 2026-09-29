@@ -333,7 +333,6 @@ function updateSettingsValidator(req) {
     }
   }
 
-  if (body.theme) validateTheme(body.theme, errors);
   if (body.contact) validateContact(body.contact, errors);
   if (body.hours) validateHours(body.hours, errors);
   if (body.locations) validateLocations(body.locations, errors);
