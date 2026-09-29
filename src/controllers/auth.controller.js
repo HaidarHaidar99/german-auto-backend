@@ -17,29 +17,45 @@ function extractLanguage(req) {
 }
 
 function resolveFrontendUrl(req) {
-  const origin = (req && (req.get("origin") || req.get("referer"))) || "";
-  if (origin.includes("german-auto-frontend.vercel.app") || origin.includes("vercel.app")) {
-    return "https://german-auto-frontend.vercel.app";
-  }
-  if (process.env.FRONTEND_URL && !process.env.FRONTEND_URL.includes("localhost")) {
-    return process.env.FRONTEND_URL.replace(/\/+$/, "");
-  }
+  // PRODUCTION HARDCODE: Always use the known frontend Vercel URL in production
   if (process.env.NODE_ENV === "production" || process.env.VERCEL) {
     return "https://german-auto-frontend.vercel.app";
   }
-  if (process.env.FRONTEND_URL) {
-    return process.env.FRONTEND_URL.replace(/\/+$/, "");
+
+  // Check Origin/Referer headers for Vercel
+  const origin = (req && (req.get("origin") || req.get("referer"))) || "";
+  if (origin.includes("vercel.app")) {
+    return "https://german-auto-frontend.vercel.app";
   }
-  return "https://german-auto-frontend.vercel.app";
+
+  // Local development
+  if (process.env.FRONTEND_URL) {
+    let url = process.env.FRONTEND_URL.replace(/\/+$/, "");
+    // Ensure protocol prefix
+    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+      url = `https://${url}`;
+    }
+    return url;
+  }
+
+  return "http://localhost:5173";
 }
 
 function resolveRedirectUri(req) {
-  if (process.env.BACKEND_URL) {
-    return `${process.env.BACKEND_URL.replace(/\/+$/, "")}/api/auth/google/callback`;
+  // PRODUCTION: Use the frontend domain as the callback URL.
+  // The frontend's vercel.json reverse proxy will forward /api/* to the backend.
+  // This makes Google consent screen show "german-auto-frontend.vercel.app" instead of the backend domain.
+  if (process.env.NODE_ENV === "production" || process.env.VERCEL) {
+    return "https://german-auto-frontend.vercel.app/api/auth/google/callback";
   }
+
   const host = req.get("host") || "";
-  const isVercel = host.includes("vercel.app");
-  const protocol = isVercel ? "https" : req.protocol;
+  if (host.includes("vercel.app")) {
+    return "https://german-auto-frontend.vercel.app/api/auth/google/callback";
+  }
+
+  // Local development
+  const protocol = req.protocol || "http";
   return `${protocol}://${host}/api/auth/google/callback`;
 }
 
