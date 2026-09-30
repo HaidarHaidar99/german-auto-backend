@@ -6,13 +6,13 @@ const supabase = require("../config/supabase");
  * Extract token from HttpOnly cookie or Authorization Bearer header
  */
 const extractToken = (req) => {
-  if (req.cookies && req.cookies[JWT_COOKIE_NAME]) {
-    return req.cookies[JWT_COOKIE_NAME];
-  }
-
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith("Bearer ")) {
     return authHeader.substring(7);
+  }
+
+  if (req.cookies && req.cookies[JWT_COOKIE_NAME]) {
+    return req.cookies[JWT_COOKIE_NAME];
   }
 
   return null;

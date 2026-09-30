@@ -115,15 +115,27 @@ class AuthController {
 
   async login(req, res, next) {
     try {
-      const { email, password } = req.body;
+      const { email, password, isAdminLogin } = req.body;
+      const isPortalAdmin = Boolean(isAdminLogin || req.headers["x-admin-portal"] === "true");
       const { user, token } = await authService.login({ email, password });
 
-      // Set JWT in secure HttpOnly cookie
-      setAuthCookie(res, token);
+      // If logging in from the dedicated admin portal, verify role and DO NOT overwrite customer cookie
+      if (isPortalAdmin) {
+        if (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN") {
+          return errorResponse(res, {
+            statusCode: 403,
+            message: "Zugriff verweigert. Nur Administratoren dürfen sich im Admin-Portal anmelden.",
+          });
+        }
+        // Admin token is returned in data and handled via Bearer token on client
+      } else {
+        // Regular customer session: Set JWT in secure HttpOnly cookie
+        setAuthCookie(res, token);
+      }
 
       return successResponse(res, {
         message: "Login successful.",
-        data: { user },
+        data: { user, token },
       });
     } catch (err) {
       next(err);
@@ -132,7 +144,11 @@ class AuthController {
 
   async logout(req, res, next) {
     try {
-      clearAuthCookie(res);
+      const isPortalAdmin = Boolean(req.body?.isAdminLogout || req.headers["x-admin-portal"] === "true");
+      // Only clear cookie for customer logout; admin token is managed in localStorage
+      if (!isPortalAdmin) {
+        clearAuthCookie(res);
+      }
 
       return successResponse(res, {
         message: "Logged out successfully.",
