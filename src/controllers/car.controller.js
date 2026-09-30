@@ -178,6 +178,27 @@ class CarController {
       next(err);
     }
   }
+
+  // ── Admin: upload car media files from device ──────────────────────────────
+
+  async uploadMedia(req, res, next) {
+    try {
+      const files = Array.isArray(req.files) ? req.files : req.file ? [req.file] : [];
+      if (files.length === 0) {
+        const { errorResponse } = require("../utils/response.util");
+        return errorResponse(res, { statusCode: 400, message: "No image files were provided." });
+      }
+
+      const urls = await carService.uploadCarImages(files);
+      return successResponse(res, {
+        statusCode: 201,
+        message: `${urls.length} image(s) uploaded successfully.`,
+        data: { urls },
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 module.exports = new CarController();

@@ -1,4 +1,5 @@
 const express = require("express");
+const path = require("path");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const helmet = require("helmet");
@@ -68,6 +69,9 @@ app.use(
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 app.use(cookieParser());
+
+// Serve local uploaded files statically
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 // General rate limiter on API endpoints
 app.use("/api", generalApiLimiter);

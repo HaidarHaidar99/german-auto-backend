@@ -631,6 +631,54 @@ class CarService {
 
     return result;
   }
+
+  /**
+   * Upload multiple car images from device (up to 20 images)
+   */
+  async uploadCarImages(files) {
+    if (!Array.isArray(files) || files.length === 0) return [];
+    const storageService = require("./storage.service");
+    const fs = require("fs");
+    const path = require("path");
+
+    const urls = [];
+    const BUCKET = process.env.SUPABASE_STORAGE_BUCKET || "german-auto-media";
+
+    for (const file of files) {
+      const rawExt = file.originalname?.split(".").pop()?.toLowerCase() || "jpg";
+      const ext = ["jpg", "jpeg", "png", "webp", "avif"].includes(rawExt) ? rawExt : "jpg";
+      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const filePath = `cars/images/${fileName}`;
+
+      let publicUrl = null;
+      try {
+        const uploaded = await storageService.uploadFile({
+          bucket: BUCKET,
+          filePath,
+          fileBuffer: file.buffer,
+          mimeType: file.mimetype || "image/jpeg",
+        });
+        publicUrl = uploaded?.publicUrl || null;
+      } catch (err) {
+        console.warn("[CarService] Supabase upload failed, using local storage:", err.message);
+        try {
+          const uploadDir = path.join(__dirname, "../../uploads/cars");
+          if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+          }
+          fs.writeFileSync(path.join(uploadDir, fileName), file.buffer);
+          publicUrl = `/uploads/cars/${fileName}`;
+        } catch (localErr) {
+          console.error("[CarService] Local fallback storage error:", localErr.message);
+        }
+      }
+
+      if (publicUrl) {
+        urls.push(publicUrl);
+      }
+    }
+    return urls;
+  }
 }
 
 module.exports = new CarService();

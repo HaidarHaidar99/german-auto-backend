@@ -26,8 +26,38 @@ router.post("/favorites", authenticate, requireVerified, carController.addFavori
 // DELETE /api/cars/favorites/:carId   — remove a car from favorites
 router.delete("/favorites/:carId", authenticate, requireVerified, carController.removeFavorite);
 
+const multer = require("multer");
+const { errorResponse } = require("../utils/response.util");
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 15 * 1024 * 1024, // 15 MB per image
+    files: 20,
+  },
+});
+
+const handleMulterError = (err, req, res, next) => {
+  if (err && err.code === "LIMIT_FILE_SIZE") {
+    return errorResponse(res, { statusCode: 422, message: "Uploaded image exceeds 15 MB limit." });
+  }
+  if (err && err.code === "LIMIT_UNEXPECTED_FILE") {
+    return errorResponse(res, { statusCode: 422, message: "Maximum 20 images allowed per upload." });
+  }
+  next(err);
+};
+
 // ─── Admin inventory routes ───────────────────────────────────────────────────
 // Declared BEFORE /:identifier so that "admin" is not caught as a car identifier.
+
+// POST /api/cars/admin/upload-media        — upload car images from device (up to 20 images)
+router.post(
+  "/admin/upload-media",
+  ...adminOnly,
+  upload.array("images", 20),
+  handleMulterError,
+  carController.uploadMedia
+);
 
 // GET  /api/cars/admin/list               — admin list (all cars, incl. hidden)
 router.get("/admin/list", ...adminOnly, validate(listCarsQueryValidator), carController.listAdmin);
