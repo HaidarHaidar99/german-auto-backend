@@ -328,6 +328,8 @@ class SettingsService {
     const allowedMimes = [
       "image/png",
       "image/jpeg",
+      "image/jpg",
+      "image/pjpeg",
       "image/webp",
       "image/svg+xml",
       "image/x-icon",
@@ -344,7 +346,9 @@ class SettingsService {
 
     // 1. Upload new asset
     const rawExt = file.originalname?.split(".").pop()?.toLowerCase() || "png";
-    const ext = ["png", "jpg", "jpeg", "webp", "svg", "ico"].includes(rawExt) ? rawExt : "png";
+    const ext = ["png", "jpg", "jpeg", "webp", "svg", "ico"].includes(rawExt)
+      ? rawExt
+      : (file.mimetype === "image/jpeg" || file.mimetype === "image/jpg" || file.mimetype === "image/pjpeg" ? "jpg" : "png");
     const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
     const filePath = `site/branding/${fileName}`;
 
