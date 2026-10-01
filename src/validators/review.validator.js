@@ -33,13 +33,13 @@ function submitReviewValidator(req) {
     }
   }
 
-  // Text validation: required, trimmed length 5..5000
+  // Text validation: required, trimmed length 5..300
   if (!text || typeof text !== "string" || text.trim().length === 0) {
     errors.text = "Review text is required.";
   } else if (text.trim().length < 5) {
     errors.text = "Review text must be at least 5 characters long.";
-  } else if (text.trim().length > 5000) {
-    errors.text = "Review text cannot exceed 5000 characters.";
+  } else if (text.trim().length > 300) {
+    errors.text = "Review text cannot exceed 300 characters.";
   }
 
   return errors;
@@ -136,8 +136,8 @@ function adminUpdateReviewValidator(req) {
       errors.text = "Review text cannot be empty.";
     } else if (text.trim().length < 5) {
       errors.text = "Review text must be at least 5 characters long.";
-    } else if (text.trim().length > 5000) {
-      errors.text = "Review text cannot exceed 5000 characters.";
+    } else if (text.trim().length > 300) {
+      errors.text = "Review text cannot exceed 300 characters.";
     }
   }
 
