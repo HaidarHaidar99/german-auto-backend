@@ -64,6 +64,19 @@ router.patch("/admin/:id", ...adminOnly, validate(adminUpdateReviewValidator), r
 // DELETE /api/reviews/admin/:id    — Soft-delete review (status=DELETED) + cleanup image
 router.delete("/admin/:id", ...adminOnly, reviewController.deleteAdminReview);
 
+// ── Customer Endpoints ───────────────────────────────────────────────────────
+// GET    /api/reviews/my           — List current user's submitted reviews
+router.get("/my", authenticate, reviewController.listMyReviews);
+
+// PATCH  /api/reviews/my/:id       — Update current user's review
+router.patch(
+  "/my/:id",
+  authenticate,
+  upload.single("image"),
+  handleMulterError,
+  reviewController.updateMyReview
+);
+
 // ── Public Endpoints ─────────────────────────────────────────────────────────
 // POST   /api/reviews              — Submit review (authenticated user)
 router.post(

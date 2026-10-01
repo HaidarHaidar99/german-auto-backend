@@ -34,6 +34,42 @@ class ReviewController {
   }
 
   /**
+   * GET /api/reviews/my
+   * Authenticated user gets their own reviews
+   */
+  async listMyReviews(req, res, next) {
+    try {
+      const reviews = await reviewService.listMyReviews(req.user.id);
+      return successResponse(res, {
+        data: { reviews },
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * PATCH /api/reviews/my/:id
+   * Authenticated user edits their own review
+   */
+  async updateMyReview(req, res, next) {
+    try {
+      const review = await reviewService.updateMyReview({
+        userId: req.user.id,
+        reviewId: req.params.id,
+        body: req.body,
+        file: req.file,
+      });
+      return successResponse(res, {
+        message: "Review updated successfully and is pending approval.",
+        data: { review },
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
    * GET /api/reviews
    * Public list of published reviews
    */

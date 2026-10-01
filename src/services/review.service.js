@@ -298,6 +298,103 @@ class ReviewService {
 
     return data;
   }
+
+  /**
+   * List reviews submitted by a specific authenticated user
+   */
+  async listMyReviews(userId) {
+    const { data, error } = await supabase
+      .from("reviews")
+      .select("id, user_id, name, rating, text, image_url, status, created_at, updated_at")
+      .eq("user_id", userId)
+      .neq("status", "DELETED")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      throw new Error(`Failed to fetch user reviews: ${error.message}`);
+    }
+
+    return data || [];
+  }
+
+  /**
+   * Update a review submitted by the authenticated user
+   */
+  async updateMyReview({ userId, reviewId, body, file }) {
+    const { data: review, error: fetchErr } = await supabase
+      .from("reviews")
+      .select("id, user_id, name, rating, text, image_url, status")
+      .eq("id", reviewId)
+      .eq("user_id", userId)
+      .neq("status", "DELETED")
+      .maybeSingle();
+
+    if (fetchErr) throw fetchErr;
+    if (!review) throw opError("Review not found or not authorized to edit", 404);
+
+    const updates = {
+      updated_at: new Date().toISOString(),
+      status: "PENDING", // Resubmit for moderation upon edit
+    };
+
+    if (body.rating !== undefined && body.rating !== null && body.rating !== "") {
+      const num = parseInt(body.rating, 10);
+      if (isNaN(num) || num < 1 || num > 5) {
+        throw opError("Rating must be an integer between 1 and 5.", 400);
+      }
+      updates.rating = num;
+    }
+
+    if (body.text !== undefined && body.text !== null) {
+      const trimmed = body.text.trim();
+      if (trimmed.length < 5 || trimmed.length > 5000) {
+        throw opError("Review text must be between 5 and 5000 characters.", 400);
+      }
+      updates.text = trimmed;
+    }
+
+    if (file) {
+      if (!ALLOWED_IMAGE_MIMES.includes(file.mimetype)) {
+        throw opError(`Invalid image type: ${file.mimetype}. Allowed: ${ALLOWED_IMAGE_MIMES.join(", ")}.`, 422);
+      }
+      if (file.size > MAX_IMAGE_BYTES) {
+        throw opError("Image exceeds the maximum allowed size of 5 MB.", 422);
+      }
+
+      const rawExt = file.originalname?.split(".").pop()?.toLowerCase() || "jpg";
+      const ext = ["jpeg", "jpg", "png", "webp", "avif"].includes(rawExt) ? rawExt : "jpg";
+      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const uploadedFilePath = `${REVIEW_STORAGE_PREFIX}/${fileName}`;
+
+      const uploadResult = await storageService.uploadFile({
+        bucket: BUCKET,
+        filePath: uploadedFilePath,
+        fileBuffer: file.buffer,
+        mimeType: file.mimetype,
+      });
+
+      // Cleanup old image if existed
+      if (review.image_url) {
+        const oldPath = extractStoragePath(review.image_url);
+        if (oldPath) {
+          storageService.deleteFile({ bucket: BUCKET, filePath: oldPath }).catch(() => {});
+        }
+      }
+
+      updates.image_url = uploadResult.publicUrl;
+    }
+
+    const { data: updated, error: updateErr } = await supabase
+      .from("reviews")
+      .update(updates)
+      .eq("id", reviewId)
+      .eq("user_id", userId)
+      .select("id, user_id, name, rating, text, image_url, status, created_at, updated_at")
+      .single();
+
+    if (updateErr) throw updateErr;
+    return updated;
+  }
 }
 
 module.exports = new ReviewService();
