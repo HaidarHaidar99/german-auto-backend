@@ -325,6 +325,7 @@ function updateSettingsValidator(req) {
     "sell_car",
     "contact_form",
     "google_reviews",
+    "about",
   ];
 
   for (const key of Object.keys(body)) {

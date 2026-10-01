@@ -135,6 +135,18 @@ const DEFAULT_SETTINGS = {
     show_rating: false,
     show_count: false,
   },
+  about: {
+    title_de: "Über German Auto",
+    title_en: "About German Auto",
+    subtitle_de: "Leidenschaft, Präzision & automobile Perfektion",
+    subtitle_en: "Passion, precision & automotive perfection",
+    story_de: "German Auto steht seit vielen Jahren für erstklassige Luxusfahrzeuge und persönlichen Premium-Service.",
+    story_en: "German Auto has represented first-class luxury vehicles and personal premium service for years.",
+    media_url: null,
+    years_experience: 15,
+    vehicles_sold: 2500,
+    satisfaction_rate: 99,
+  },
 };
 
 function opError(message, statusCode = 400) {
@@ -318,11 +330,12 @@ class SettingsService {
       logo: "logo_url",
       logo_dark: "logo_dark_url",
       favicon: "favicon_url",
+      footer_logo: "footer_logo_url",
     };
 
     const key = allowedTypes[type];
     if (!key) {
-      throw opError(`Invalid branding asset type: '${type}'. Allowed: logo, logo_dark, favicon.`, 400);
+      throw opError(`Invalid branding asset type: '${type}'. Allowed: logo, logo_dark, favicon, footer_logo.`, 400);
     }
 
     const allowedMimes = [
