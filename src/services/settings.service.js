@@ -10,19 +10,19 @@ const BUCKET = process.env.SUPABASE_STORAGE_BUCKET || "german-auto-media";
 
 const DEFAULT_SETTINGS = {
   site: {
-    name: null,
-    description: null,
+    name: "König Automobile Rheinberg",
+    description: "König Automobile Rheinberg — Ihr exklusiver Partner für Premium- und Luxusautomobile",
     default_language: "de",
     supported_languages: ["de", "en"],
     timezone: "Europe/Berlin",
-    seo_title: null,
-    seo_description: null,
-    seo_keywords: [],
+    seo_title: "König Automobile Rheinberg",
+    seo_description: "Exklusive Sportwagen, Luxuslimousinen und Premiumfahrzeuge bei König Automobile Rheinberg.",
+    seo_keywords: ["König Automobile", "Rheinberg", "Sportwagen", "Luxusautos", "Gebrauchtwagen"],
     robots_indexing: true,
   },
   branding: {
-    logo_url: null,
-    logo_dark_url: null,
+    logo_url: "https://ylmahjqspbudmtewjhcg.supabase.co/storage/v1/object/public/german-auto-media/site/branding/1790760237272-so6ety.jpg",
+    logo_dark_url: "https://ylmahjqspbudmtewjhcg.supabase.co/storage/v1/object/public/german-auto-media/site/branding/1790760237272-so6ety.jpg",
     favicon_url: null,
   },
   theme: {
@@ -68,14 +68,15 @@ const DEFAULT_SETTINGS = {
     header_cta: { enabled: false, label_de: null, label_en: null, route: null },
   },
   footer: {
-    copyright_de: null,
-    copyright_en: null,
-    description_de: null,
-    description_en: null,
+    copyright_de: "© 2026 König Automobile Rheinberg. Alle Rechte vorbehalten.",
+    copyright_en: "© 2026 König Automobile Rheinberg. All rights reserved.",
+    description_de: "König Automobile Rheinberg — Ihr exklusiver Partner für Automobile höchster Güteklasse.",
+    description_en: "König Automobile Rheinberg — Your exclusive destination for fine luxury automobiles.",
     navigation_groups: [],
     show_contact: true,
     show_social: true,
     show_locations: true,
+    footer_logo_url: null,
   },
   homepage: {
     sections_order: [
@@ -136,12 +137,12 @@ const DEFAULT_SETTINGS = {
     show_count: false,
   },
   about: {
-    title_de: "Über German Auto",
-    title_en: "About German Auto",
+    title_de: "Über König Automobile Rheinberg",
+    title_en: "About König Automobile Rheinberg",
     subtitle_de: "Leidenschaft, Präzision & automobile Perfektion",
     subtitle_en: "Passion, precision & automotive perfection",
-    story_de: "German Auto steht seit vielen Jahren für erstklassige Luxusfahrzeuge und persönlichen Premium-Service.",
-    story_en: "German Auto has represented first-class luxury vehicles and personal premium service for years.",
+    story_de: "König Automobile Rheinberg steht seit vielen Jahren für erstklassige Luxusfahrzeuge und persönlichen Premium-Service.",
+    story_en: "König Automobile Rheinberg has represented first-class luxury vehicles and personal premium service for years.",
     media_url: null,
     years_experience: 15,
     vehicles_sold: 2500,
