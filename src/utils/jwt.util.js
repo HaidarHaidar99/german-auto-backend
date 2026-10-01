@@ -15,11 +15,13 @@ const getJwtSecret = () => {
 };
 
 /**
- * Sign JWT token with user claims
+ * Sign JWT token with user claims.
+ * Guarantees a minimum 1 day (24h) session for admin portal users.
  */
-const signToken = (payload) => {
+const signToken = (payload, options = {}) => {
   const secret = getJwtSecret();
-  const expiresIn = process.env.JWT_EXPIRES_IN || "24h";
+  const isAdmin = payload.role === "ADMIN" || payload.role === "SUPER_ADMIN" || payload.isAdmin;
+  const expiresIn = options.expiresIn || (isAdmin ? "24h" : (process.env.JWT_EXPIRES_IN || "24h"));
 
   return jwt.sign(payload, secret, {
     expiresIn,
@@ -36,17 +38,18 @@ const verifyToken = (token) => {
 
 /**
  * Calculate cookie maxAge in milliseconds based on JWT_EXPIRES_IN
+ * Guaranteed to stand for at least 24 hours (1 day login session = 86,400,000 ms)
  */
 const getCookieMaxAgeMs = () => {
   const expiry = process.env.JWT_EXPIRES_IN || "24h";
   const num = parseInt(expiry, 10);
 
-  if (expiry.endsWith("d")) return num * 24 * 60 * 60 * 1000;
-  if (expiry.endsWith("h")) return num * 60 * 60 * 1000;
+  if (expiry.endsWith("d")) return Math.max(num * 24 * 60 * 60 * 1000, 24 * 60 * 60 * 1000);
+  if (expiry.endsWith("h")) return Math.max(num * 60 * 60 * 1000, 24 * 60 * 60 * 1000);
   if (expiry.endsWith("m")) return num * 60 * 1000;
   if (expiry.endsWith("s")) return num * 1000;
 
-  // Default to 24 hours (1 day login session)
+  // Default to 24 hours (1 full day login session)
   return 24 * 60 * 60 * 1000;
 };
 

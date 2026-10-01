@@ -1,5 +1,5 @@
 const authService = require("../services/auth.service");
-const { successResponse } = require("../utils/response.util");
+const { successResponse, errorResponse } = require("../utils/response.util");
 const { setAuthCookie, clearAuthCookie } = require("../utils/jwt.util");
 
 function extractLanguage(req) {
@@ -119,7 +119,7 @@ class AuthController {
       const isPortalAdmin = Boolean(isAdminLogin || req.headers["x-admin-portal"] === "true");
       const { user, token } = await authService.login({ email, password });
 
-      // If logging in from the dedicated admin portal, verify role and DO NOT overwrite customer cookie
+      // If logging in from the dedicated admin portal, verify role
       if (isPortalAdmin) {
         if (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN") {
           return errorResponse(res, {
@@ -127,11 +127,10 @@ class AuthController {
             message: "Zugriff verweigert. Nur Administratoren dürfen sich im Admin-Portal anmelden.",
           });
         }
-        // Admin token is returned in data and handled via Bearer token on client
-      } else {
-        // Regular customer session: Set JWT in secure HttpOnly cookie
-        setAuthCookie(res, token);
       }
+
+      // Set JWT in secure HttpOnly cookie guaranteed for 24h (1 day)
+      setAuthCookie(res, token);
 
       return successResponse(res, {
         message: "Login successful.",
@@ -144,11 +143,7 @@ class AuthController {
 
   async logout(req, res, next) {
     try {
-      const isPortalAdmin = Boolean(req.body?.isAdminLogout || req.headers["x-admin-portal"] === "true");
-      // Only clear cookie for customer logout; admin token is managed in localStorage
-      if (!isPortalAdmin) {
-        clearAuthCookie(res);
-      }
+      clearAuthCookie(res);
 
       return successResponse(res, {
         message: "Logged out successfully.",
