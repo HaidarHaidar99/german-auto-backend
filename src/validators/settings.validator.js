@@ -184,6 +184,9 @@ function validateHero(hero, errors) {
       if (item.type && !["IMAGE", "VIDEO"].includes(item.type)) {
         errors[`hero.items[${idx}].type`] = "Item type must be either 'IMAGE' or 'VIDEO'.";
       }
+      if (item.type_light && !["IMAGE", "VIDEO"].includes(item.type_light)) {
+        errors[`hero.items[${idx}].type_light`] = "Light item type must be either 'IMAGE' or 'VIDEO'.";
+      }
       if (item.button_link && !isValidUrl(item.button_link, true)) {
         errors[`hero.items[${idx}].button_link`] = "Button link must be a safe route or URL.";
       }

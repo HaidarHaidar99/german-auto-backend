@@ -23,6 +23,7 @@ const DEFAULT_SETTINGS = {
   branding: {
     logo_url: "https://ylmahjqspbudmtewjhcg.supabase.co/storage/v1/object/public/german-auto-media/site/branding/1790760237272-so6ety.jpg",
     logo_dark_url: "https://ylmahjqspbudmtewjhcg.supabase.co/storage/v1/object/public/german-auto-media/site/branding/1790760237272-so6ety.jpg",
+    logo_light_url: null,
     favicon_url: null,
   },
   theme: {
@@ -330,13 +331,14 @@ class SettingsService {
     const allowedTypes = {
       logo: "logo_url",
       logo_dark: "logo_dark_url",
+      logo_light: "logo_light_url",
       favicon: "favicon_url",
       footer_logo: "footer_logo_url",
     };
 
     const key = allowedTypes[type];
     if (!key) {
-      throw opError(`Invalid branding asset type: '${type}'. Allowed: logo, logo_dark, favicon, footer_logo.`, 400);
+      throw opError(`Invalid branding asset type: '${type}'. Allowed: logo, logo_dark, logo_light, favicon, footer_logo.`, 400);
     }
 
     const allowedMimes = [
