@@ -265,6 +265,42 @@ class SettingsService {
     const current = record.settings || {};
     const updated = { ...current };
 
+    // Sanitize & normalize hero items if provided
+    if (patchPayload.hero && Array.isArray(patchPayload.hero.items)) {
+      const normalizeRoute = (link) => {
+        if (!link || typeof link !== "string") return link;
+        const trimmed = link.trim();
+        if (
+          trimmed.length > 0 &&
+          !trimmed.startsWith("/") &&
+          !trimmed.startsWith("#") &&
+          !trimmed.startsWith("http://") &&
+          !trimmed.startsWith("https://") &&
+          !trimmed.startsWith("tel:") &&
+          !trimmed.startsWith("mailto:")
+        ) {
+          return `/${trimmed}`;
+        }
+        return trimmed;
+      };
+
+      patchPayload.hero.items = patchPayload.hero.items.map((item) => {
+        if (!item || typeof item !== "object") return item;
+        const normalized = { ...item };
+        if (normalized.type) normalized.type = String(normalized.type).toUpperCase();
+        if (normalized.type_light) normalized.type_light = String(normalized.type_light).toUpperCase();
+
+        if (normalized.button_link) normalized.button_link = normalizeRoute(normalized.button_link);
+        if (normalized.button_link_de) normalized.button_link_de = normalizeRoute(normalized.button_link_de);
+        if (normalized.button_link_en) normalized.button_link_en = normalizeRoute(normalized.button_link_en);
+        if (normalized.secondary_button_link) normalized.secondary_button_link = normalizeRoute(normalized.secondary_button_link);
+        if (normalized.secondary_button_link_de) normalized.secondary_button_link_de = normalizeRoute(normalized.secondary_button_link_de);
+        if (normalized.secondary_button_link_en) normalized.secondary_button_link_en = normalizeRoute(normalized.secondary_button_link_en);
+
+        return normalized;
+      });
+    }
+
     for (const [section, val] of Object.entries(patchPayload)) {
       if (val && typeof val === "object" && !Array.isArray(val)) {
         updated[section] = { ...(current[section] || {}), ...val };
@@ -273,11 +309,14 @@ class SettingsService {
       }
     }
 
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const safeUserId = (userId && typeof userId === "string" && UUID_REGEX.test(userId)) ? userId : null;
+
     const { data: saved, error } = await supabase
       .from("site_settings")
       .update({
         settings: updated,
-        updated_by: userId,
+        updated_by: safeUserId,
         updated_at: new Date().toISOString(),
       })
       .eq("id", record.id)
@@ -306,11 +345,14 @@ class SettingsService {
       [section]: JSON.parse(JSON.stringify(DEFAULT_SETTINGS[section])),
     };
 
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const safeUserId = (userId && typeof userId === "string" && UUID_REGEX.test(userId)) ? userId : null;
+
     const { data: saved, error } = await supabase
       .from("site_settings")
       .update({
         settings: updated,
-        updated_by: userId,
+        updated_by: safeUserId,
         updated_at: new Date().toISOString(),
       })
       .eq("id", record.id)

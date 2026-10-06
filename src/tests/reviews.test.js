@@ -371,14 +371,14 @@ async function run() {
       assert.strictEqual(res.data.data.review.rating, 5);
     });
 
-    await test(7, "New review defaults to PENDING", async () => {
+    await test(7, "New review defaults to PUBLISHED (immediate public display)", async () => {
       assert.ok(submittedReviewId, "Test 6 review ID must exist");
       const { data: dbRow } = await supabase
         .from("reviews")
         .select("status")
         .eq("id", submittedReviewId)
         .single();
-      assert.strictEqual(dbRow.status, "PENDING", "Database status must default to PENDING");
+      assert.strictEqual(dbRow.status, "PUBLISHED", "Database status must default to PUBLISHED");
     });
 
     // ── Tests 8 to 11: Validation & Integrity ────────────────────────────────

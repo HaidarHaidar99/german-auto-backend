@@ -10,13 +10,41 @@ function isValidUrl(url, allowRelative = false) {
   if (typeof url !== "string") return false;
   const trimmed = url.trim();
   if (trimmed.length === 0) return true; // empty allowed
-  if (allowRelative && (trimmed.startsWith("/") || trimmed.startsWith("#"))) {
-    // Relative routes: reject dangerous prefixes
-    return !/^(javascript|data|vbscript):/i.test(trimmed);
+
+  // Reject dangerous pseudo-protocols
+  if (/^(javascript|data|vbscript):/i.test(trimmed)) {
+    return false;
   }
+
+  // Reject protocol-relative external redirects
+  if (trimmed.startsWith("//")) {
+    return false;
+  }
+
+  if (allowRelative) {
+    // Relative routes starting with / or hash anchors #
+    if (trimmed.startsWith("/") || trimmed.startsWith("#")) {
+      return true;
+    }
+
+    // Direct phone or mail links
+    if (/^(tel:|mailto:)/i.test(trimmed)) {
+      return true;
+    }
+
+    // Relative path without leading slash (e.g. "cars", "inventory?make=BMW", "contact")
+    // Safe as long as it has no scheme delimiter ":"
+    if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)) {
+      return true;
+    }
+  }
+
   try {
     const parsed = new URL(trimmed);
-    return ["http:", "https:"].includes(parsed.protocol);
+    const allowed = allowRelative
+      ? ["http:", "https:", "tel:", "mailto:"]
+      : ["http:", "https:"];
+    return allowed.includes(parsed.protocol);
   } catch {
     return false;
   }
@@ -181,10 +209,10 @@ function validateHero(hero, errors) {
         errors[`hero.items[${idx}]`] = "Item must be an object.";
         return;
       }
-      if (item.type && !["IMAGE", "VIDEO"].includes(item.type)) {
+      if (item.type && !["IMAGE", "VIDEO"].includes(String(item.type).toUpperCase())) {
         errors[`hero.items[${idx}].type`] = "Item type must be either 'IMAGE' or 'VIDEO'.";
       }
-      if (item.type_light && !["IMAGE", "VIDEO"].includes(item.type_light)) {
+      if (item.type_light && !["IMAGE", "VIDEO"].includes(String(item.type_light).toUpperCase())) {
         errors[`hero.items[${idx}].type_light`] = "Light item type must be either 'IMAGE' or 'VIDEO'.";
       }
       if (item.button_link && !isValidUrl(item.button_link, true)) {
