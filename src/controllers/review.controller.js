@@ -61,7 +61,7 @@ class ReviewController {
         file: req.file,
       });
       return successResponse(res, {
-        message: "Review updated successfully and is pending approval.",
+        message: "Review updated successfully.",
         data: { review },
       });
     } catch (err) {

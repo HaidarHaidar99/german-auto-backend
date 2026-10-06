@@ -114,7 +114,7 @@ class ReviewService {
           rating: parseInt(body.rating, 10),
           text: trimmedText,
           image_url: imageUrl,
-          status: "PENDING",
+          status: "PUBLISHED",
         })
         .select("id, user_id, name, rating, text, image_url, status, created_at, updated_at")
         .single();
@@ -127,7 +127,7 @@ class ReviewService {
       notificationService.notifyNewReview(data).catch(() => {});
 
       return {
-        message: "Review submitted successfully and is pending approval.",
+        message: "Review submitted and published successfully.",
         review: data,
       };
     } catch (dbErr) {
@@ -334,7 +334,7 @@ class ReviewService {
 
     const updates = {
       updated_at: new Date().toISOString(),
-      status: "PENDING", // Resubmit for moderation upon edit
+      status: review.status === "HIDDEN" ? "HIDDEN" : "PUBLISHED",
     };
 
     if (body.rating !== undefined && body.rating !== null && body.rating !== "") {

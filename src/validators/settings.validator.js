@@ -190,6 +190,21 @@ function validateHero(hero, errors) {
       if (item.button_link && !isValidUrl(item.button_link, true)) {
         errors[`hero.items[${idx}].button_link`] = "Button link must be a safe route or URL.";
       }
+      if (item.button_link_de && !isValidUrl(item.button_link_de, true)) {
+        errors[`hero.items[${idx}].button_link_de`] = "Button link (DE) must be a safe route or URL.";
+      }
+      if (item.button_link_en && !isValidUrl(item.button_link_en, true)) {
+        errors[`hero.items[${idx}].button_link_en`] = "Button link (EN) must be a safe route or URL.";
+      }
+      if (item.secondary_button_link && !isValidUrl(item.secondary_button_link, true)) {
+        errors[`hero.items[${idx}].secondary_button_link`] = "Secondary button link must be a safe route or URL.";
+      }
+      if (item.secondary_button_link_de && !isValidUrl(item.secondary_button_link_de, true)) {
+        errors[`hero.items[${idx}].secondary_button_link_de`] = "Secondary button link (DE) must be a safe route or URL.";
+      }
+      if (item.secondary_button_link_en && !isValidUrl(item.secondary_button_link_en, true)) {
+        errors[`hero.items[${idx}].secondary_button_link_en`] = "Secondary button link (EN) must be a safe route or URL.";
+      }
     });
   }
 }
@@ -337,6 +352,7 @@ function updateSettingsValidator(req) {
     }
   }
 
+  if (body.theme) validateTheme(body.theme, errors);
   if (body.contact) validateContact(body.contact, errors);
   if (body.hours) validateHours(body.hours, errors);
   if (body.locations) validateLocations(body.locations, errors);
