@@ -212,7 +212,6 @@ async function testValidation() {
     const { status, data } = await apiPost("/api/cars/admin", {}, adminCookie);
     assert.strictEqual(status, 400);
     assert.ok(data.errors.brand, "Should flag brand");
-    assert.ok(data.errors.model, "Should flag model");
     assert.ok(data.errors.title, "Should flag title");
     assert.ok(data.errors.price, "Should flag price");
   });

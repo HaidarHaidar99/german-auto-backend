@@ -152,7 +152,9 @@ function validateLocations(locations, errors) {
     }
 
     if (loc.map_url !== undefined && loc.map_url !== null && loc.map_url !== "") {
-      if (!isValidUrl(loc.map_url, false)) {
+      const normalizedMapUrl = String(loc.map_url).trim();
+      const testUrl = /^https?:\/\//i.test(normalizedMapUrl) ? normalizedMapUrl : `https://${normalizedMapUrl}`;
+      if (!isValidUrl(testUrl, false)) {
         errors[`locations[${idx}].map_url`] = "Map URL must be a valid HTTP/HTTPS URL.";
       }
     }
@@ -279,14 +281,16 @@ function validateOffers(offers, errors) {
 function validateSocial(social, errors) {
   if (!social || typeof social !== "object") return;
 
-  const platforms = ["facebook", "instagram", "youtube", "tiktok", "linkedin", "x"];
+  const platforms = ["facebook", "instagram", "youtube", "tiktok", "linkedin", "x", "whatsapp"];
   for (const [key, val] of Object.entries(social)) {
     if (!platforms.includes(key.toLowerCase())) {
       errors[`social.${key}`] = `Unsupported social platform: '${key}'. Allowed: ${platforms.join(", ")}.`;
       continue;
     }
     if (val && typeof val === "object" && val.url) {
-      if (!isValidUrl(val.url, false)) {
+      const trimmedUrl = String(val.url).trim();
+      const testUrl = /^https?:\/\//i.test(trimmedUrl) ? trimmedUrl : `https://${trimmedUrl}`;
+      if (!isValidUrl(testUrl, false)) {
         errors[`social.${key}.url`] = `Invalid URL for ${key}.`;
       }
     }

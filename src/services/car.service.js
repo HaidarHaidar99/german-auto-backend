@@ -114,6 +114,8 @@ class CarService {
       limit = DEFAULT_PAGE_SIZE,
       brand,
       model,
+      name,
+      search,
       category,
       fuel_type,
       transmission,
@@ -139,7 +141,11 @@ class CarService {
 
     // Filters
     if (brand) query = query.ilike("brand", `%${brand}%`);
-    if (model) query = query.ilike("model", `%${model}%`);
+    if (model) query = query.or(`model.ilike.%${model}%,title.ilike.%${model}%`);
+    if (name || search) {
+      const term = name || search;
+      query = query.or(`title.ilike.%${term}%,model.ilike.%${term}%,brand.ilike.%${term}%`);
+    }
     if (category) query = query.eq("category", category);
     if (fuel_type) query = query.eq("fuel_type", fuel_type);
     if (transmission) query = query.eq("transmission", transmission);
@@ -290,14 +296,17 @@ class CarService {
       slug: rawSlug, category, status,
     } = payload;
 
+    // Resolve model fallback gracefully if omitted
+    const modelVal = (model || title || brand || "").trim();
+
     // Resolve slug
     const slug = rawSlug
       ? await this._ensureUniqueSlug(rawSlug.trim(), null)
-      : await generateUniqueSlug(brand, model, title);
+      : await generateUniqueSlug(brand, modelVal, title);
 
     const insert = {
       brand: brand.trim(),
-      model: model.trim(),
+      model: modelVal,
       title: title.trim(),
       slug,
       price: Number(price),

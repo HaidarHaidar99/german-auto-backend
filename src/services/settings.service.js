@@ -59,6 +59,7 @@ const DEFAULT_SETTINGS = {
   social: {
     facebook: { enabled: false, url: null },
     instagram: { enabled: false, url: null },
+    whatsapp: { enabled: false, url: null },
     youtube: { enabled: false, url: null },
     tiktok: { enabled: false, url: null },
     linkedin: { enabled: false, url: null },
@@ -301,6 +302,43 @@ class SettingsService {
       });
     }
 
+    // Sanitize & normalize locations if provided
+    if (Array.isArray(patchPayload.locations)) {
+      patchPayload.locations = patchPayload.locations.map((loc) => {
+        if (!loc || typeof loc !== "object") return loc;
+        const address = loc.address || loc.street || "";
+        const street = loc.street || loc.address || "";
+        let map_url = loc.map_url ? String(loc.map_url).trim() : "";
+        if (map_url && !/^https?:\/\//i.test(map_url) && !map_url.startsWith("/")) {
+          map_url = `https://${map_url}`;
+        }
+        return {
+          ...loc,
+          address,
+          street,
+          map_url,
+        };
+      });
+    }
+
+    // Sanitize & normalize social platform keys & URLs if provided
+    if (patchPayload.social && typeof patchPayload.social === "object" && !Array.isArray(patchPayload.social)) {
+      const normalizedSocial = {};
+      for (const [k, v] of Object.entries(patchPayload.social)) {
+        const keyLower = k.toLowerCase();
+        if (v && typeof v === "object") {
+          let url = v.url ? String(v.url).trim() : null;
+          if (url && !/^https?:\/\//i.test(url) && !url.startsWith("tel:") && !url.startsWith("mailto:")) {
+            url = `https://${url}`;
+          }
+          normalizedSocial[keyLower] = { ...v, url };
+        } else {
+          normalizedSocial[keyLower] = v;
+        }
+      }
+      patchPayload.social = normalizedSocial;
+    }
+
     for (const [section, val] of Object.entries(patchPayload)) {
       if (val && typeof val === "object" && !Array.isArray(val)) {
         updated[section] = { ...(current[section] || {}), ...val };
@@ -421,13 +459,21 @@ class SettingsService {
 
     // 2. Fetch current setting to determine old asset URL
     const record = await this.initOrGetSettings();
-    const currentBranding = record.settings?.branding || {};
-    const oldUrl = currentBranding[key];
+    let oldUrl = null;
 
     // 3. Update DB
     try {
-      const updatedBranding = { ...currentBranding, [key]: newUrl };
-      await this.updateSettings(userId, { branding: updatedBranding });
+      if (type === "footer_logo") {
+        const currentFooter = record.settings?.footer || {};
+        oldUrl = currentFooter.footer_logo_url;
+        const updatedFooter = { ...currentFooter, footer_logo_url: newUrl };
+        await this.updateSettings(userId, { footer: updatedFooter });
+      } else {
+        const currentBranding = record.settings?.branding || {};
+        oldUrl = currentBranding[key];
+        const updatedBranding = { ...currentBranding, [key]: newUrl };
+        await this.updateSettings(userId, { branding: updatedBranding });
+      }
     } catch (dbErr) {
       // Rollback newly uploaded file on DB failure
       await storageService.deleteFile({ bucket: BUCKET, filePath });

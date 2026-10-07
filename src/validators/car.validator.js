@@ -31,8 +31,8 @@ const createCarValidator = (req) => {
   if (!isNonEmpty(b.brand) || b.brand.trim().length > MAX_SHORT) {
     errors.brand = "Brand is required (max 200 chars).";
   }
-  if (!isNonEmpty(b.model) || b.model.trim().length > MAX_SHORT) {
-    errors.model = "Model is required (max 200 chars).";
+  if (b.model !== undefined && b.model !== null && typeof b.model === "string" && b.model.trim().length > MAX_SHORT) {
+    errors.model = "Model cannot exceed 200 chars.";
   }
   if (!isNonEmpty(b.title) || b.title.trim().length > MAX_SHORT) {
     errors.title = "Title is required (max 200 chars).";
