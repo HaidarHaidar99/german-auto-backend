@@ -72,17 +72,19 @@ async function createUser(role, email, fullName = null) {
   return data;
 }
 
+let savedInitialSettings = null;
+
 async function cleanup() {
-  // 1. Delete all tracked storage files
+  // 1. Delete all tracked storage files created in this run
   if (trackedStoragePaths.length > 0) {
     await storageService.deleteFiles({ bucket: BUCKET, filePaths: trackedStoragePaths });
   }
 
-  // 2. Delete any branding & hero test files
+  // 2. Delete ONLY test files belonging to this specific RUN_ID (never user uploads!)
   const { data: brandingFiles } = await supabase.storage.from(BUCKET).list("site/branding");
   if (brandingFiles && brandingFiles.length > 0) {
     const toDelete = brandingFiles
-      .filter((f) => f.name.includes(String(RUN_ID)) || f.name.endsWith(".png") || f.name.endsWith(".ico") || f.name.endsWith(".jpg"))
+      .filter((f) => f.name.includes(String(RUN_ID)))
       .map((f) => `site/branding/${f.name}`);
     if (toDelete.length > 0) {
       await storageService.deleteFiles({ bucket: BUCKET, filePaths: toDelete });
@@ -92,23 +94,24 @@ async function cleanup() {
   const { data: heroFiles } = await supabase.storage.from(BUCKET).list("site/hero");
   if (heroFiles && heroFiles.length > 0) {
     const toDelete = heroFiles
-      .filter((f) => f.name.includes(String(RUN_ID)) || f.name.endsWith(".jpg") || f.name.endsWith(".mp4") || f.name.endsWith(".webm"))
+      .filter((f) => f.name.includes(String(RUN_ID)))
       .map((f) => `site/hero/${f.name}`);
     if (toDelete.length > 0) {
       await storageService.deleteFiles({ bucket: BUCKET, filePaths: toDelete });
     }
   }
 
-  // 3. Reset settings to default structure
-  const { DEFAULT_SETTINGS } = settingsService;
-  await supabase
-    .from("site_settings")
-    .update({
-      settings: DEFAULT_SETTINGS,
-      updated_by: null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("singleton", true);
+  // 3. Restore user settings to whatever was present before the test started
+  if (savedInitialSettings) {
+    await supabase
+      .from("site_settings")
+      .update({
+        settings: savedInitialSettings,
+        updated_by: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("singleton", true);
+  }
 
   // 4. Delete test users
   if (createdUserEmails.length > 0) {
@@ -263,8 +266,11 @@ async function run() {
 
     console.log("All test users created and authenticated.\n");
 
-    // Initialize the singleton settings record
-    await settingsService.initOrGetSettings();
+    // Initialize and capture existing settings record to preserve user data
+    const existingRecord = await settingsService.initOrGetSettings();
+    if (existingRecord && existingRecord.settings) {
+      savedInitialSettings = JSON.parse(JSON.stringify(existingRecord.settings));
+    }
 
     // ── Tests 1 to 2: Public Settings ────────────────────────────────────────
     await test(1, "Public settings endpoint works", async () => {
