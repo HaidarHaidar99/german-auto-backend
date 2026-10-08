@@ -276,6 +276,34 @@ class NotificationService {
   }
 
   /**
+   * Dismiss all current notifications for the admin (source records untouched)
+   */
+  async clearAll(userId) {
+    const [{ data: forms }, { data: reviews }, { data: user }] = await Promise.all([
+      supabase.from("forms").select("id").limit(1000),
+      supabase.from("reviews").select("id").limit(1000),
+      supabase.from("users").select("notification_preferences").eq("id", userId).maybeSingle(),
+    ]);
+
+    const prefs = user?.notification_preferences || {};
+    const allIds = [...(forms || []), ...(reviews || [])].map((r) => r.id);
+    const dismissedIds = Array.from(
+      new Set([...(Array.isArray(prefs.dismissed_ids) ? prefs.dismissed_ids : []), ...allIds])
+    );
+
+    const { error } = await supabase
+      .from("users")
+      .update({
+        notification_preferences: { ...prefs, dismissed_ids: dismissedIds },
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", userId);
+
+    if (error) throw new Error(`Failed to clear notifications: ${error.message}`);
+    return { cleared_count: allIds.length };
+  }
+
+  /**
    * Retrieve notification preferences for an authenticated user
    */
   async getPreferences(userId) {

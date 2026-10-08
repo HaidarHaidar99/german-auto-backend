@@ -49,6 +49,7 @@ router.get("/", ...adminOnly, validate(listNotificationsValidator), notification
 router.patch("/read-all", ...adminOnly, notificationController.markAllRead);
 router.patch("/:id/read", ...adminOnly, notificationController.markRead);
 router.patch("/:id/unread", ...adminOnly, notificationController.markUnread);
+router.delete("/clear-all", ...adminOnly, notificationController.clearAll);
 router.delete("/:id", ...adminOnly, notificationController.dismissNotification);
 
 module.exports = router;

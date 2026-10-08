@@ -91,6 +91,18 @@ class NotificationController {
   }
 
   /**
+   * DELETE /api/notifications/clear-all
+   */
+  async clearAll(req, res, next) {
+    try {
+      const result = await notificationService.clearAll(req.user.id);
+      return successResponse(res, { message: "All notifications cleared.", data: result });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
    * GET /api/notifications/preferences
    * Get user notification preferences
    */
