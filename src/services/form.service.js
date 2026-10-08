@@ -30,8 +30,8 @@ const ALLOWED_IMAGE_MIMES = ["image/jpeg", "image/png", "image/webp", "image/avi
 const SELL_CAR_BUCKET = process.env.SUPABASE_STORAGE_BUCKET || "german-auto-media";
 const SELL_CAR_PREFIX = "forms/sell-car";
 
-// Columns exposed in admin list (lightweight — no data JSONB blob for performance)
-const ADMIN_LIST_COLUMNS = "id, form_type, status, admin_notes, user_id, created_at, updated_at";
+// Columns exposed in admin list (includes data JSONB for instant drawer preview)
+const ADMIN_LIST_COLUMNS = "id, form_type, data, status, admin_notes, user_id, created_at, updated_at";
 
 // Columns exposed in admin detail (full data)
 const ADMIN_DETAIL_COLUMNS = "id, form_type, data, status, admin_notes, user_id, created_at, updated_at";

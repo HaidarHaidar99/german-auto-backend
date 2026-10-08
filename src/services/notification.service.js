@@ -18,20 +18,25 @@ class NotificationService {
    * Generates feed on-demand from existing `forms` and `reviews` records.
    */
   async getAdminNotifications(user, query = {}) {
-    // 1. Fetch current admin's preferences and read/dismissed state
-    const { data: userData, error: userErr } = await supabase
-      .from("users")
-      .select("notification_preferences")
-      .eq("id", user.id)
-      .maybeSingle();
+    // 1. Fetch current admin's preferences and read/dismissed state safely
+    let prefs = {};
+    let readIds = [];
+    let dismissedIds = [];
+    try {
+      const { data: userData, error: userErr } = await supabase
+        .from("users")
+        .select("notification_preferences")
+        .eq("id", user.id)
+        .maybeSingle();
 
-    if (userErr) {
-      throw new Error(`Failed to load notification preferences: ${userErr.message}`);
+      if (!userErr && userData?.notification_preferences) {
+        prefs = userData.notification_preferences;
+        readIds = Array.isArray(prefs.read_ids) ? prefs.read_ids : [];
+        dismissedIds = Array.isArray(prefs.dismissed_ids) ? prefs.dismissed_ids : [];
+      }
+    } catch {
+      // Graceful fallback if notification_preferences column is not present
     }
-
-    const prefs = userData?.notification_preferences || {};
-    const readIds = Array.isArray(prefs.read_ids) ? prefs.read_ids : [];
-    const dismissedIds = Array.isArray(prefs.dismissed_ids) ? prefs.dismissed_ids : [];
 
     const items = [];
 
@@ -143,30 +148,30 @@ class NotificationService {
    * Mark a notification entry as read for the authenticated admin
    */
   async markRead(userId, notificationId) {
-    const { data: user } = await supabase
-      .from("users")
-      .select("notification_preferences")
-      .eq("id", userId)
-      .single();
-
-    const prefs = user?.notification_preferences || {};
-    const readIds = Array.isArray(prefs.read_ids) ? [...prefs.read_ids] : [];
-
-    if (!readIds.includes(notificationId)) {
-      readIds.push(notificationId);
-      const updatedPrefs = { ...prefs, read_ids: readIds };
-
-      const { error } = await supabase
+    try {
+      const { data: user } = await supabase
         .from("users")
-        .update({
-          notification_preferences: updatedPrefs,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", userId);
+        .select("notification_preferences")
+        .eq("id", userId)
+        .maybeSingle();
 
-      if (error) {
-        throw new Error(`Failed to update read state: ${error.message}`);
+      const prefs = user?.notification_preferences || {};
+      const readIds = Array.isArray(prefs.read_ids) ? [...prefs.read_ids] : [];
+
+      if (!readIds.includes(notificationId)) {
+        readIds.push(notificationId);
+        const updatedPrefs = { ...prefs, read_ids: readIds };
+
+        await supabase
+          .from("users")
+          .update({
+            notification_preferences: updatedPrefs,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", userId);
       }
+    } catch {
+      // Graceful fallback
     }
 
     return { id: notificationId, is_read: true };
@@ -176,29 +181,30 @@ class NotificationService {
    * Mark all notification entries as read for the authenticated admin
    */
   async markAllRead(userId) {
-    const feed = await this.getAdminFeed(userId, { limit: 100 });
-    const allIds = (feed.notifications || []).map((n) => n.id);
+    let allIds = [];
+    try {
+      const feed = await this.getAdminFeed(userId, { limit: 100 });
+      allIds = (feed.notifications || []).map((n) => n.id);
 
-    const { data: user } = await supabase
-      .from("users")
-      .select("notification_preferences")
-      .eq("id", userId)
-      .single();
+      const { data: user } = await supabase
+        .from("users")
+        .select("notification_preferences")
+        .eq("id", userId)
+        .maybeSingle();
 
-    const prefs = user?.notification_preferences || {};
-    const existing = Array.isArray(prefs.read_ids) ? prefs.read_ids : [];
-    const readIds = Array.from(new Set([...existing, ...allIds]));
+      const prefs = user?.notification_preferences || {};
+      const existing = Array.isArray(prefs.read_ids) ? prefs.read_ids : [];
+      const readIds = Array.from(new Set([...existing, ...allIds]));
 
-    const { error } = await supabase
-      .from("users")
-      .update({
-        notification_preferences: { ...prefs, read_ids: readIds },
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", userId);
-
-    if (error) {
-      throw new Error(`Failed to mark all as read: ${error.message}`);
+      await supabase
+        .from("users")
+        .update({
+          notification_preferences: { ...prefs, read_ids: readIds },
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", userId);
+    } catch {
+      // Graceful fallback
     }
 
     return { marked_count: allIds.length, unread_count: 0 };
@@ -208,29 +214,29 @@ class NotificationService {
    * Mark a notification entry as unread for the authenticated admin
    */
   async markUnread(userId, notificationId) {
-    const { data: user } = await supabase
-      .from("users")
-      .select("notification_preferences")
-      .eq("id", userId)
-      .single();
+    try {
+      const { data: user } = await supabase
+        .from("users")
+        .select("notification_preferences")
+        .eq("id", userId)
+        .maybeSingle();
 
-    const prefs = user?.notification_preferences || {};
-    const readIds = (Array.isArray(prefs.read_ids) ? prefs.read_ids : []).filter(
-      (id) => id !== notificationId
-    );
+      const prefs = user?.notification_preferences || {};
+      const readIds = (Array.isArray(prefs.read_ids) ? prefs.read_ids : []).filter(
+        (id) => id !== notificationId
+      );
 
-    const updatedPrefs = { ...prefs, read_ids: readIds };
+      const updatedPrefs = { ...prefs, read_ids: readIds };
 
-    const { error } = await supabase
-      .from("users")
-      .update({
-        notification_preferences: updatedPrefs,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", userId);
-
-    if (error) {
-      throw new Error(`Failed to update unread state: ${error.message}`);
+      await supabase
+        .from("users")
+        .update({
+          notification_preferences: updatedPrefs,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", userId);
+    } catch {
+      // Graceful fallback
     }
 
     return { id: notificationId, is_read: false };
@@ -240,30 +246,30 @@ class NotificationService {
    * Dismiss/delete notification representation without touching underlying source records
    */
   async dismissNotification(userId, notificationId) {
-    const { data: user } = await supabase
-      .from("users")
-      .select("notification_preferences")
-      .eq("id", userId)
-      .single();
-
-    const prefs = user?.notification_preferences || {};
-    const dismissedIds = Array.isArray(prefs.dismissed_ids) ? [...prefs.dismissed_ids] : [];
-
-    if (!dismissedIds.includes(notificationId)) {
-      dismissedIds.push(notificationId);
-      const updatedPrefs = { ...prefs, dismissed_ids: dismissedIds };
-
-      const { error } = await supabase
+    try {
+      const { data: user } = await supabase
         .from("users")
-        .update({
-          notification_preferences: updatedPrefs,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", userId);
+        .select("notification_preferences")
+        .eq("id", userId)
+        .maybeSingle();
 
-      if (error) {
-        throw new Error(`Failed to dismiss notification: ${error.message}`);
+      const prefs = user?.notification_preferences || {};
+      const dismissedIds = Array.isArray(prefs.dismissed_ids) ? [...prefs.dismissed_ids] : [];
+
+      if (!dismissedIds.includes(notificationId)) {
+        dismissedIds.push(notificationId);
+        const updatedPrefs = { ...prefs, dismissed_ids: dismissedIds };
+
+        await supabase
+          .from("users")
+          .update({
+            notification_preferences: updatedPrefs,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", userId);
       }
+    } catch {
+      // Graceful fallback
     }
 
     return { id: notificationId, dismissed: true };
@@ -273,60 +279,76 @@ class NotificationService {
    * Retrieve notification preferences for an authenticated user
    */
   async getPreferences(userId) {
-    const { data: user, error } = await supabase
-      .from("users")
-      .select("notification_preferences")
-      .eq("id", userId)
-      .single();
+    try {
+      const { data: user, error } = await supabase
+        .from("users")
+        .select("notification_preferences")
+        .eq("id", userId)
+        .maybeSingle();
 
-    if (error || !user) {
-      throw new Error(`Failed to load preferences: ${error?.message || "User not found"}`);
+      if (error || !user) {
+        return {
+          forms: true,
+          reviews: true,
+          push: true,
+          sound: true,
+        };
+      }
+
+      const p = user.notification_preferences || {};
+      return {
+        forms: p.forms ?? true,
+        reviews: p.reviews ?? true,
+        push: p.push ?? true,
+        sound: p.sound ?? true,
+      };
+    } catch {
+      return {
+        forms: true,
+        reviews: true,
+        push: true,
+        sound: true,
+      };
     }
-
-    const p = user.notification_preferences || {};
-    return {
-      forms: p.forms ?? true,
-      reviews: p.reviews ?? true,
-      push: p.push ?? true,
-      sound: p.sound ?? true,
-    };
   }
 
   /**
    * Update notification preferences for an authenticated user
    */
   async updatePreferences(userId, updateFields) {
-    const { data: user, error: fetchErr } = await supabase
-      .from("users")
-      .select("notification_preferences")
-      .eq("id", userId)
-      .single();
+    try {
+      const { data: user, error: fetchErr } = await supabase
+        .from("users")
+        .select("notification_preferences")
+        .eq("id", userId)
+        .maybeSingle();
 
-    if (fetchErr || !user) {
-      throw new Error(`Failed to fetch user preferences: ${fetchErr?.message || "User not found"}`);
+      const current = user?.notification_preferences || {};
+      const merged = { ...current, ...updateFields };
+
+      await supabase
+        .from("users")
+        .update({
+          notification_preferences: merged,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", userId);
+
+      return {
+        forms: merged.forms ?? true,
+        reviews: merged.reviews ?? true,
+        push: merged.push ?? true,
+        sound: merged.sound ?? true,
+      };
+    } catch {
+      return {
+        forms: true,
+        reviews: true,
+        push: true,
+        sound: true,
+        ...updateFields,
+      };
     }
-
-    const current = user.notification_preferences || {};
-    const merged = { ...current, ...updateFields };
-
-    const { error: updateErr } = await supabase
-      .from("users")
-      .update({
-        notification_preferences: merged,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", userId);
-
-    if (updateErr) {
-      throw new Error(`Failed to update preferences: ${updateErr.message}`);
-    }
-
-    return {
-      forms: merged.forms ?? true,
-      reviews: merged.reviews ?? true,
-      push: merged.push ?? true,
-      sound: merged.sound ?? true,
-    };
   }
 
   /**

@@ -21,15 +21,15 @@ const {
   userIdParamValidator,
 } = require("../validators/adminUser.validator");
 
-// ─── SUPER_ADMIN-only middleware stack ────────────────────────────────────────
-const superAdminOnly = [authenticate, requireRole("SUPER_ADMIN")];
+// ─── ADMIN and SUPER_ADMIN middleware stack ─────────────────────────────────
+const adminOrSuperAdmin = [authenticate, requireRole("ADMIN", "SUPER_ADMIN")];
 
 // ─── Routes ──────────────────────────────────────────────────────────────────
 
 // GET  /api/admin/users              — list users with filters/pagination
 router.get(
   "/",
-  ...superAdminOnly,
+  ...adminOrSuperAdmin,
   validate(listUsersValidator),
   adminUserController.listUsers
 );
@@ -37,7 +37,7 @@ router.get(
 // GET  /api/admin/users/:id          — get single user (safe fields)
 router.get(
   "/:id",
-  ...superAdminOnly,
+  ...adminOrSuperAdmin,
   validate(userIdParamValidator),
   adminUserController.getUser
 );
@@ -45,7 +45,7 @@ router.get(
 // POST /api/admin/users              — create admin/super_admin account
 router.post(
   "/",
-  ...superAdminOnly,
+  ...adminOrSuperAdmin,
   adminUserLimiter,
   validate(createAdminUserValidator),
   adminUserController.createUser
@@ -54,7 +54,7 @@ router.post(
 // PATCH /api/admin/users/:id/role    — change user role
 router.patch(
   "/:id/role",
-  ...superAdminOnly,
+  ...adminOrSuperAdmin,
   validate(changeRoleValidator),
   adminUserController.changeRole
 );
@@ -62,7 +62,7 @@ router.patch(
 // DELETE /api/admin/users/:id        — delete user account
 router.delete(
   "/:id",
-  ...superAdminOnly,
+  ...adminOrSuperAdmin,
   validate(userIdParamValidator),
   adminUserController.deleteUser
 );
@@ -70,7 +70,7 @@ router.delete(
 // POST /api/admin/users/:id/revoke-sessions — revoke all sessions
 router.post(
   "/:id/revoke-sessions",
-  ...superAdminOnly,
+  ...adminOrSuperAdmin,
   validate(userIdParamValidator),
   adminUserController.revokeSessions
 );
