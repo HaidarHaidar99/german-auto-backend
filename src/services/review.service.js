@@ -268,7 +268,7 @@ class ReviewService {
   }
 
   /**
-   * Soft-delete review (status = DELETED) and cleanup Storage file if present
+   * Delete review and cleanup Storage file if present
    */
   async softDeleteReview(id) {
     const existing = await this.getAdminReview(id);
@@ -283,20 +283,16 @@ class ReviewService {
 
     const { data, error } = await supabase
       .from("reviews")
-      .update({
-        status: "DELETED",
-        image_url: null,
-        updated_at: new Date().toISOString(),
-      })
+      .delete()
       .eq("id", id)
       .select("id, user_id, name, rating, text, image_url, status, created_at, updated_at")
-      .single();
+      .maybeSingle();
 
     if (error) {
       throw new Error(`Failed to delete review: ${error.message}`);
     }
 
-    return data;
+    return data || { id, status: "DELETED" };
   }
 
   /**
