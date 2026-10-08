@@ -24,14 +24,54 @@ app.set("trust proxy", 1);
 // Security headers
 app.use(helmet());
 
+const url = require("url");
+
+// Helper to generate protocol, www, unicode, and ASCII punycode variants
+function buildOriginVariants(rawDomainOrUrl) {
+  if (!rawDomainOrUrl) return [];
+  try {
+    const raw = String(rawDomainOrUrl).trim();
+    const parsed = new URL(raw.startsWith("http://") || raw.startsWith("https://") ? raw : `https://${raw}`);
+    const host = parsed.hostname.toLowerCase();
+    const asciiHost = url.domainToASCII ? url.domainToASCII(host) : host;
+    const unicodeHost = url.domainToUnicode ? url.domainToUnicode(host) : host;
+
+    const baseHosts = new Set([
+      host,
+      host.replace(/^www\./, ""),
+      asciiHost,
+      asciiHost.replace(/^www\./, ""),
+      unicodeHost,
+      unicodeHost.replace(/^www\./, ""),
+    ]);
+
+    const results = new Set();
+    baseHosts.forEach((b) => {
+      if (!b) return;
+      results.add(`https://${b}`);
+      results.add(`https://www.${b}`);
+      results.add(`http://${b}`);
+      results.add(`http://www.${b}`);
+    });
+    return Array.from(results);
+  } catch {
+    return [rawDomainOrUrl];
+  }
+}
+
 // CORS configuration
-const allowedOrigins = [
+const baseAllowed = [
   "https://german-auto-frontend.vercel.app",
   "http://localhost:5173",
   "http://localhost:3000",
   "http://127.0.0.1:5173",
-  process.env.FRONTEND_URL,
-].filter(Boolean);
+  ...buildOriginVariants("königautomobilerheinberg.de"),
+  ...buildOriginVariants("koenigautomobilerheinberg.de"),
+  ...buildOriginVariants("xn--knigautomobilerheinberg-7kc.de"),
+  ...(process.env.FRONTEND_URL ? buildOriginVariants(process.env.FRONTEND_URL) : []),
+];
+
+const allowedOrigins = Array.from(new Set(baseAllowed.filter(Boolean)));
 
 app.use(
   cors({
@@ -44,10 +84,19 @@ app.use(
         return callback(null, true);
       }
 
-      // Allow any Vercel preview or production deployment domain (*.vercel.app)
+      // Check hostname against allowed domain patterns
       try {
-        const hostname = new URL(origin).hostname;
-        if (hostname.endsWith(".vercel.app")) {
+        const incomingUrl = new URL(origin);
+        const incomingHost = incomingUrl.hostname.toLowerCase();
+        const incomingAscii = url.domainToASCII ? url.domainToASCII(incomingHost) : incomingHost;
+
+        if (
+          incomingAscii === "xn--knigautomobilerheinberg-7kc.de" ||
+          incomingAscii === "www.xn--knigautomobilerheinberg-7kc.de" ||
+          incomingAscii === "koenigautomobilerheinberg.de" ||
+          incomingAscii === "www.koenigautomobilerheinberg.de" ||
+          incomingAscii.endsWith(".vercel.app")
+        ) {
           return callback(null, true);
         }
       } catch {

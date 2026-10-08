@@ -17,46 +17,44 @@ function extractLanguage(req) {
 }
 
 function resolveFrontendUrl(req) {
-  // PRODUCTION HARDCODE: Always use the known frontend Vercel URL in production
-  if (process.env.NODE_ENV === "production" || process.env.VERCEL) {
-    return "https://german-auto-frontend.vercel.app";
-  }
-
-  // Check Origin/Referer headers for Vercel
-  const origin = (req && (req.get("origin") || req.get("referer"))) || "";
-  if (origin.includes("vercel.app")) {
-    return "https://german-auto-frontend.vercel.app";
-  }
-
-  // Local development
+  // 1. Explicit FRONTEND_URL environment variable takes highest priority
   if (process.env.FRONTEND_URL) {
-    let url = process.env.FRONTEND_URL.replace(/\/+$/, "");
-    // Ensure protocol prefix
+    let url = process.env.FRONTEND_URL.trim().replace(/\/+$/, "");
     if (!url.startsWith("http://") && !url.startsWith("https://")) {
       url = `https://${url}`;
     }
     return url;
   }
 
+  // 2. Derive dynamically from Origin or Referer if from known domains
+  const origin = (req && (req.get("origin") || req.get("referer"))) || "";
+  if (origin) {
+    try {
+      const parsed = new URL(origin);
+      const host = parsed.hostname.toLowerCase();
+      if (
+        host.includes("königautomobilerheinberg.de") ||
+        host.includes("xn--knigautomobilerheinberg-7kc.de") ||
+        host.includes("koenigautomobilerheinberg.de") ||
+        host.endsWith(".vercel.app")
+      ) {
+        return parsed.origin;
+      }
+    } catch {}
+  }
+
+  // 3. Known production custom domain
+  if (process.env.NODE_ENV === "production" || process.env.VERCEL) {
+    return "https://königautomobilerheinberg.de";
+  }
+
+  // 4. Local development fallback
   return "http://localhost:5173";
 }
 
 function resolveRedirectUri(req) {
-  // PRODUCTION: Use the frontend domain as the callback URL.
-  // The frontend's vercel.json reverse proxy will forward /api/* to the backend.
-  // This makes Google consent screen show "german-auto-frontend.vercel.app" instead of the backend domain.
-  if (process.env.NODE_ENV === "production" || process.env.VERCEL) {
-    return "https://german-auto-frontend.vercel.app/api/auth/google/callback";
-  }
-
-  const host = req.get("host") || "";
-  if (host.includes("vercel.app")) {
-    return "https://german-auto-frontend.vercel.app/api/auth/google/callback";
-  }
-
-  // Local development
-  const protocol = req.protocol || "http";
-  return `${protocol}://${host}/api/auth/google/callback`;
+  const base = resolveFrontendUrl(req);
+  return `${base}/api/auth/google/callback`;
 }
 
 class AuthController {
