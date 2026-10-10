@@ -73,7 +73,7 @@ const DEFAULT_SETTINGS = {
     copyright_de: "© 2026 König Automobile Rheinberg. Alle Rechte vorbehalten.",
     copyright_en: "© 2026 König Automobile Rheinberg. All rights reserved.",
     description_de: "König Automobile Rheinberg — Ihr exklusiver Partner für Automobile höchster Güteklasse.",
-    description_en: "König Automobile Rheinberg — Your exclusive destination for fine luxury automobiles.",
+    description_en: "König Automobile Rheinberg — Ihr exklusiver Partner für Automobile höchster Güteklasse.",
     navigation_groups: [],
     show_contact: true,
     show_social: true,
