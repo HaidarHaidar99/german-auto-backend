@@ -199,6 +199,50 @@ class CarController {
       next(err);
     }
   }
+
+  // ── Admin: Carmuca vehicle import ─────────────────────────────────────────
+
+  async previewCarmucaImport(req, res, next) {
+    try {
+      const { vehicleId } = req.body;
+      if (!vehicleId || typeof vehicleId !== "string" || !vehicleId.trim()) {
+        const { errorResponse } = require("../utils/response.util");
+        return errorResponse(res, { statusCode: 400, message: "vehicleId is required for import preview." });
+      }
+
+      const carmucaImportService = require("../services/carmucaImport.service");
+      const preview = await carmucaImportService.previewImport(vehicleId.trim());
+
+      return successResponse(res, {
+        message: "Carmuca vehicle preview generated successfully.",
+        data: preview,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async executeCarmucaImport(req, res, next) {
+    try {
+      const { vehicleId } = req.body;
+      if (!vehicleId || typeof vehicleId !== "string" || !vehicleId.trim()) {
+        const { errorResponse } = require("../utils/response.util");
+        return errorResponse(res, { statusCode: 400, message: "vehicleId is required for import." });
+      }
+
+      const carmucaImportService = require("../services/carmucaImport.service");
+      const result = await carmucaImportService.executeImport(vehicleId.trim());
+
+      return successResponse(res, {
+        statusCode: result.already_imported ? 200 : 201,
+        message: result.message,
+        data: result,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 module.exports = new CarController();
+

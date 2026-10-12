@@ -59,6 +59,20 @@ router.post(
   carController.uploadMedia
 );
 
+// POST /api/cars/admin/import/carmuca/preview  — preview one Carmuca vehicle without writing
+router.post(
+  "/admin/import/carmuca/preview",
+  ...adminOnly,
+  carController.previewCarmucaImport
+);
+
+// POST /api/cars/admin/import/carmuca/execute  — controlled import of one Carmuca vehicle
+router.post(
+  "/admin/import/carmuca/execute",
+  ...adminOnly,
+  carController.executeCarmucaImport
+);
+
 // GET  /api/cars/admin/list               — admin list (all cars, incl. hidden)
 router.get("/admin/list", ...adminOnly, validate(listCarsQueryValidator), carController.listAdmin);
 
