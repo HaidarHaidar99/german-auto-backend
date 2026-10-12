@@ -33,7 +33,7 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
     fileSize: 15 * 1024 * 1024, // 15 MB per image
-    files: 20,
+    files: 100, // Generous batch limit
   },
 });
 
@@ -42,7 +42,7 @@ const handleMulterError = (err, req, res, next) => {
     return errorResponse(res, { statusCode: 422, message: "Uploaded image exceeds 15 MB limit." });
   }
   if (err && err.code === "LIMIT_UNEXPECTED_FILE") {
-    return errorResponse(res, { statusCode: 422, message: "Maximum 20 images allowed per upload." });
+    return errorResponse(res, { statusCode: 422, message: "Too many images in upload batch (maximum 100 per batch)." });
   }
   next(err);
 };
@@ -50,11 +50,11 @@ const handleMulterError = (err, req, res, next) => {
 // ─── Admin inventory routes ───────────────────────────────────────────────────
 // Declared BEFORE /:identifier so that "admin" is not caught as a car identifier.
 
-// POST /api/cars/admin/upload-media        — upload car images from device (up to 20 images)
+// POST /api/cars/admin/upload-media        — upload car images from device
 router.post(
   "/admin/upload-media",
   ...adminOnly,
-  upload.array("images", 20),
+  upload.array("images"),
   handleMulterError,
   carController.uploadMedia
 );

@@ -85,8 +85,12 @@ const createCarValidator = (req) => {
   if (b.category !== undefined && !VALID_CATEGORY.includes(b.category)) {
     errors.category = `Category must be one of: ${VALID_CATEGORY.join(", ")}.`;
   }
-  if (b.interior_design !== undefined && !VALID_INTERIOR.includes(b.interior_design)) {
-    errors.interior_design = `Interior design must be one of: ${VALID_INTERIOR.join(", ")}.`;
+  if (b.interior_design !== undefined && b.interior_design !== null) {
+    if (!isString(b.interior_design)) {
+      errors.interior_design = "Interior upholstery must be a string.";
+    } else if (b.interior_design.trim().length > MAX_SHORT) {
+      errors.interior_design = `Interior upholstery cannot exceed ${MAX_SHORT} chars.`;
+    }
   }
 
   // Date field
@@ -130,12 +134,10 @@ const createCarValidator = (req) => {
     if (typeof b.media !== "object" || Array.isArray(b.media) || b.media === null) {
       errors.media = "Media must be a plain object.";
     } else {
-      // Validate gallery array length
+      // Validate gallery array
       if (b.media.gallery !== undefined) {
         if (!Array.isArray(b.media.gallery)) {
           errors.media = "media.gallery must be an array.";
-        } else if (b.media.gallery.length > 20) {
-          errors.media = "media.gallery cannot exceed 20 images.";
         }
       }
     }
@@ -200,8 +202,12 @@ const updateCarValidator = (req) => {
   if (b.category !== undefined && !VALID_CATEGORY.includes(b.category)) {
     errors.category = `Category must be one of: ${VALID_CATEGORY.join(", ")}.`;
   }
-  if (b.interior_design !== undefined && !VALID_INTERIOR.includes(b.interior_design)) {
-    errors.interior_design = `Interior design must be one of: ${VALID_INTERIOR.join(", ")}.`;
+  if (b.interior_design !== undefined && b.interior_design !== null) {
+    if (!isString(b.interior_design)) {
+      errors.interior_design = "Interior upholstery must be a string.";
+    } else if (b.interior_design.trim().length > MAX_SHORT) {
+      errors.interior_design = `Interior upholstery cannot exceed ${MAX_SHORT} chars.`;
+    }
   }
   if (b.first_registration !== undefined && b.first_registration !== null) {
     const d = new Date(b.first_registration);
@@ -235,8 +241,6 @@ const updateCarValidator = (req) => {
     } else if (b.media.gallery !== undefined) {
       if (!Array.isArray(b.media.gallery)) {
         errors.media = "media.gallery must be an array.";
-      } else if (b.media.gallery.length > 20) {
-        errors.media = "media.gallery cannot exceed 20 images.";
       }
     }
   }

@@ -248,10 +248,21 @@ async function testValidation() {
     assert.ok(data.errors.seats);
   });
 
-  await test("Create car — media.gallery >20 images → 400", async () => {
+  await test("Create car — media.gallery with >20 images succeeds (no 20-photo cap)", async () => {
+    const testGallery = new Array(35).fill(0).map((_, i) => `path/to/img_${i + 1}.jpg`);
     const { status, data } = await apiPost("/api/cars/admin", {
-      brand: "BMW", model: "M3", title: "Test M3", price: 50000,
-      media: { gallery: new Array(21).fill("path/to/img.jpg") },
+      brand: "BMW", model: "M3", title: "Test M3 35 Photos", price: 50000,
+      media: { gallery: testGallery },
+    }, adminCookie);
+    assert.strictEqual(status, 201);
+    assert.strictEqual(data.data.car.media.gallery.length, 35);
+    createdCarIds.push(data.data.car.id);
+  });
+
+  await test("Create car — media.gallery non-array → 400", async () => {
+    const { status, data } = await apiPost("/api/cars/admin", {
+      brand: "BMW", model: "M3", title: "Test M3 Invalid Media", price: 50000,
+      media: { gallery: "not-an-array" },
     }, adminCookie);
     assert.strictEqual(status, 400);
     assert.ok(data.errors.media);

@@ -114,6 +114,7 @@ class CarService {
       limit = DEFAULT_PAGE_SIZE,
       brand,
       model,
+      q,
       name,
       search,
       category,
@@ -142,8 +143,8 @@ class CarService {
     // Filters
     if (brand) query = query.ilike("brand", `%${brand}%`);
     if (model) query = query.or(`model.ilike.%${model}%,title.ilike.%${model}%`);
-    if (name || search) {
-      const term = name || search;
+    const term = (q || search || name || "").trim();
+    if (term) {
       query = query.or(`title.ilike.%${term}%,model.ilike.%${term}%,brand.ilike.%${term}%`);
     }
     if (category) query = query.eq("category", category);
@@ -331,8 +332,10 @@ class CarService {
     if (vehicle_condition !== undefined) insert.vehicle_condition = vehicle_condition;
     if (air_conditioning !== undefined) insert.air_conditioning = Boolean(air_conditioning);
     if (camera !== undefined) insert.camera = Boolean(camera);
-    if (interior_design !== undefined) insert.interior_design = interior_design;
-    if (interior_color !== undefined) insert.interior_color = interior_color;
+    if (interior_design !== undefined) {
+      insert.interior_design = typeof interior_design === "string" ? (interior_design.trim() || null) : interior_design;
+    }
+    if (interior_color !== undefined) insert.interior_color = typeof interior_color === "string" ? interior_color.trim() : interior_color;
     if (equipment !== undefined) insert.equipment = equipment;
     if (custom_fields !== undefined) insert.custom_fields = custom_fields;
     if (media !== undefined) insert.media = this._validateMedia(media);
@@ -362,9 +365,12 @@ class CarService {
     for (const f of stringFields) {
       if (payload[f] !== undefined) update[f] = payload[f];
     }
-    const trimmed = ["brand", "model", "title"];
+    const trimmed = ["brand", "model", "title", "interior_design", "interior_color", "vehicle_condition"];
     for (const f of trimmed) {
-      if (update[f]) update[f] = update[f].trim();
+      if (typeof update[f] === "string") {
+        update[f] = update[f].trim();
+        if (f === "interior_design" && update[f] === "") update[f] = null;
+      }
     }
 
     const numFields = ["price", "old_price", "mileage_km", "engine_displacement_cc",
@@ -626,7 +632,7 @@ class CarService {
       result.thumbnail = typeof media.thumbnail === "string" ? media.thumbnail : null;
     }
     if (media.gallery !== undefined) {
-      result.gallery = Array.isArray(media.gallery) ? media.gallery.slice(0, 20) : [];
+      result.gallery = Array.isArray(media.gallery) ? media.gallery.filter(Boolean) : [];
     }
     if (media.video !== undefined) {
       result.video = typeof media.video === "string" ? media.video : null;
