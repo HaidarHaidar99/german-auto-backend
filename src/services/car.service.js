@@ -648,7 +648,7 @@ class CarService {
   }
 
   /**
-   * Upload multiple car images from device (up to 20 images)
+   * Upload multiple car images from device (with per-file validation and bounded concurrency)
    */
   async uploadCarImages(files) {
     if (!Array.isArray(files) || files.length === 0) return [];
